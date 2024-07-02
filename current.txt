@@ -7,7 +7,7 @@
 
 # HALs released in Android O
 
-f219c3b5b8c6cb1d659d4c7328f67246abfe1a8613f469826fd3b9ad090417a2 android.hardware.audio@2.0::IDevice
+28e044632d9dc721501ceb44dc6f36ff40eadda8b0bfd78aeac66f668fd311eb android.hardware.audio@2.0::IDevice
 4d579cae1cd87a783fd49233e10ce720ba183cfd1d5ccd80149e69de5c1c7362 android.hardware.audio@2.0::IDevicesFactory
 203e23f18011390b8cd10c303e0c16c4eebc8fa187e80e40d6be4624c2b0848a android.hardware.audio@2.0::IPrimaryDevice
 aaf93123deec336eb247ad8099849469a541ca0cf7c28c5f5336cebe1ee86748 android.hardware.audio@2.0::IStream
@@ -279,7 +279,7 @@ e29fb1941b40a990676f8e9c676a38761defd890b81a9c034608eb7ba6496023 android.hardwar
 b280c4704dfcc548a9bf127b59b7c3578f460c50cce70a06b66fe0df8b27cff0 android.hardware.wifi@1.0::types
 
 # HALs released in Android P
-5860cf040a3d5d771967ecf648b00d06876a7120da985ee2b3e95d01f634dd20 android.hardware.audio@4.0::IDevice
+95652aa8c57f0f4625f37f54de55321436568d8aa8fba1773ff11deef0630435 android.hardware.audio@4.0::IDevice
 cf82a0249e918fdc657e189895e92d60af0491868477e82cdc30f6cab0ca2c65 android.hardware.audio@4.0::IDevicesFactory
 be3dc9baed45a0d330152eca3ca24fa419b375b20a41644c88d4fb46b72784d2 android.hardware.audio@4.0::IPrimaryDevice
 3e3acb70c4e6c7d578f511f4a44ee764ab9126f887a3bf65d523c42e40012bf6 android.hardware.audio@4.0::IStream
@@ -430,7 +430,7 @@ c28859a334c1f540dea0a7d4f0baef0551ba76a3232f53c936196543ee35bc4d android.hardwar
 # HALs released in Android Q
 438dc52ab820befb7a11e953e82110f0d8c91cdf96ef62be921efc64f5a3d580 android.hardware.atrace@1.0::IAtraceDevice
 20b9f81bb0b1f812f150ec94d42648b01087f2344ea91df0416bce0fb6cdfbd4 android.hardware.atrace@1.0::types
-dfdb4d04b65dc363e5621c85bfdf3023c277b75c31d821d8e71b3f44f198e214 android.hardware.audio@5.0::IDevice
+7e9b3bb513024461946efee3a3f8866e69e4c84abab7424c103630371698846b android.hardware.audio@5.0::IDevice
 0a911297821854985cfcdb17b63d7948af0f0f51ce8c68cc86367c185bbc772e android.hardware.audio@5.0::IDevicesFactory
 ce2e8c6c8559fd42bd69e0dee27b4d9c93cd9b2eff487b4e6b6395b6a1a993d6 android.hardware.audio@5.0::IPrimaryDevice
 4a4e5e5d9357004a1256bde8d36010ee00c51cea811a1c1e0dd969a9fc0bf862 android.hardware.audio@5.0::IStream
@@ -615,7 +615,7 @@ ff5dd821c2c7a9c78607159c4d788960b725487263c49d956ca5fa3d37008b45 android.hardwar
 5751f230e86a36111e7c5b995577cbf89d8df76c8e6c7641199198f3db3a93f7 android.hardware.wifi@1.3::IWifiStaIface
 
 # HALs released in Android R
-7241bd4596a927cd46d4b82f5e29e2cbe57f194aa1b25555f1d1d352e8b15c61 android.hardware.audio@6.0::IDevice
+e47c7f35eb21018ed582385a2b9f21d5b3b79c185520fdeda2e563c036617aa6 android.hardware.audio@6.0::IDevice
 2402876cbc23c0de3690a665eca84fd3857d1808dba5cad25ce272f81ecef8c9 android.hardware.audio@6.0::IDevicesFactory
 bca5379d5065e2e08b6ad7308ffc8a71a972fc0698bec678ea32eea786d01cb5 android.hardware.audio@6.0::IPrimaryDevice
 fd1f1b29f26b42e886220f04a08086c00e5ade9d7b53f095438e578ab9d42a93 android.hardware.audio@6.0::IStream
