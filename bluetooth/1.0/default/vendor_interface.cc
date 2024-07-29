@@ -220,6 +220,13 @@ bool VendorInterface::Open(InitializeCompleteCallback initialize_complete_cb,
 
   ALOGD("%s vendor library loaded", __func__);
 
+  char prop_value[PROPERTY_VALUE_MAX];
+  property_get("fde.fake_bt", prop_value, "0");
+  if (!strcmp(prop_value, "1")) {
+    initialize_complete_cb_(true);
+    return true;
+  }
+
   // Power on the controller
 
   int power_state = BT_VND_PWR_ON;
@@ -323,7 +330,11 @@ size_t VendorInterface::Send(uint8_t type, const uint8_t* data, size_t length) {
     lib_interface_->op(BT_VND_OP_LPM_WAKE_SET_STATE, &wakeState);
     ALOGV("%s: Sent wake before (%02x)", __func__, data[0] | (data[1] << 8));
   }
-
+  char prop_value[PROPERTY_VALUE_MAX];
+  property_get("fde.fake_bt", prop_value, "0");
+  if (!strcmp(prop_value, "1")) {
+    return length;
+  }
   return hci_->Send(type, data, length);
 }
 
