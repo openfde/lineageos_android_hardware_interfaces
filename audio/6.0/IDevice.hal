@@ -343,4 +343,44 @@ interface IDevice {
      * @return retval operation completion status.
      */
     removeDeviceEffect(AudioPortHandle device, uint64_t effectId) generates (Result retval);
+
+    /**
+     * get all available input/output devices info.
+     *
+     * @param input input/output device.
+     * @return retval operation completion status.
+     * @return result devices info to return.
+     */
+    getDevs(bool input) generates (Result retval, string result);
+
+    /**
+     * set volume for a input/output device.
+     *
+     * @param input input/output device.
+     * @param devName device name+port find in pactl.
+     * @param volume volume value [0,1].
+     * @return retval operation completion status.
+     */
+    setDevVolume(bool input, string devName, float volume) generates (Result retval);
+
+    /**
+     * set/unset a input/output device mute.
+     *
+     * @param input input/output device.
+     * @param devName device name+port find in pactl.
+     * @param mute mute/umute.
+     * @return retval operation completion status.
+     */
+    setDevMute(bool input, string devName, bool mute) generates (Result retval);
+
+    /**
+     * set a input/output device as the default device.
+     *
+     * @param input input/output device.
+     * @param devName device name+port find in pactl.
+     * @param needInfo if true hope get the new default device info.
+     * @return retval operation completion status.
+     * @return result new default device info to return.
+     */
+    setDefaultDev(bool input, string devName, bool needInfo) generates (Result retval, string result);
 };

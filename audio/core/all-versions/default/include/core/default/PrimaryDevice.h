@@ -127,6 +127,10 @@ struct PrimaryDevice : public IPrimaryDevice {
     Return<Result> setBtHfpVolume(float volume) override;
     Return<Result> updateRotation(IPrimaryDevice::Rotation rotation) override;
 #endif
+    Return<void> getDevs(bool input, getDevs_cb _hidl_cb) override;
+    Return<Result> setDevVolume(bool input, const hidl_string& devName, float volume) override;
+    Return<Result> setDevMute(bool input, const hidl_string& devName, bool mute) override;
+    Return<void> setDefaultDev(bool input, const hidl_string& devName, bool needInfo, setDefaultDev_cb _hidl_cb) override;
 
    private:
     sp<Device> mDevice;

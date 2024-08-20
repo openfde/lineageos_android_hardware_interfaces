@@ -463,6 +463,54 @@ Return<void> Device::updateAudioPatch(int32_t previousPatch,
 
 #endif
 
+Return<void> Device::getDevs(bool input, getDevs_cb _hidl_cb) {
+    Result retval(Result::NOT_SUPPORTED);
+    hidl_string result;
+    if (mDevice->get_devs != NULL) {
+        char* halResult = mDevice->get_devs(mDevice, input);
+        if (halResult != NULL) {
+            result = halResult;
+            free(halResult);
+        }
+        retval = Result::OK;
+    }
+    _hidl_cb(retval, result);
+    return Void();
+}
+
+Return<Result> Device::setDevVolume(bool input, const hidl_string& devName, float volume) {
+    Result retval(Result::NOT_SUPPORTED);
+    if (mDevice->set_dev_volume != NULL) {
+        retval = analyzeStatus("set_dev_volume", mDevice->set_dev_volume(mDevice, input, devName.c_str(), volume),
+                               {ENOSYS} /*ignore*/);
+    }
+    return retval;
+}
+
+Return<Result> Device::setDevMute(bool input, const hidl_string& devName, bool mute) {
+    Result retval(Result::NOT_SUPPORTED);
+    if (mDevice->set_dev_mute != NULL) {
+    retval = analyzeStatus("set_dev_mute", mDevice->set_dev_mute(mDevice, input, devName.c_str(), mute),
+                           {ENOSYS} /*ignore*/);
+    }
+    return retval;
+}
+
+Return<void> Device::setDefaultDev(bool input, const hidl_string& devName, bool needInfo, setDefaultDev_cb _hidl_cb) {
+    Result retval(Result::NOT_SUPPORTED);
+    hidl_string result;
+    if (mDevice->set_default_dev != NULL) {
+        char* halResult = mDevice->set_default_dev(mDevice, input, devName.c_str(), needInfo);
+        if (halResult != NULL) {
+            result = halResult;
+            free(halResult);
+        }
+        retval = Result::OK;
+    }
+    _hidl_cb(retval, result);
+    return Void();
+}
+
 }  // namespace implementation
 }  // namespace CPP_VERSION
 }  // namespace audio

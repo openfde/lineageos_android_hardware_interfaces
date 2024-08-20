@@ -336,6 +336,22 @@ Return<void> PrimaryDevice::debug(const hidl_handle& fd, const hidl_vec<hidl_str
     return mDevice->debug(fd, options);
 }
 
+Return<void> PrimaryDevice::getDevs(bool input, getDevs_cb _hidl_cb) {
+    return mDevice->getDevs(input, _hidl_cb);
+}
+
+Return<Result> PrimaryDevice::setDevVolume(bool input, const hidl_string& devName, float volume) {
+    return mDevice->setDevVolume(input, devName, volume);
+}
+
+Return<Result> PrimaryDevice::setDevMute(bool input, const hidl_string& devName, bool mute) {
+    return mDevice->setDevMute(input, devName, mute);
+}
+
+Return<void> PrimaryDevice::setDefaultDev(bool input, const hidl_string& devName, bool needInfo, setDefaultDev_cb _hidl_cb) {
+    return mDevice->setDefaultDev(input, devName, needInfo, _hidl_cb);
+}
+
 }  // namespace implementation
 }  // namespace CPP_VERSION
 }  // namespace audio

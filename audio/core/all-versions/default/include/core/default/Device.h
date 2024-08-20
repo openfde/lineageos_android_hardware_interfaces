@@ -130,6 +130,10 @@ struct Device : public IDevice, public ParametersUtil {
     void closeInputStream(audio_stream_in_t* stream);
     void closeOutputStream(audio_stream_out_t* stream);
     audio_hw_device_t* device() const { return mDevice; }
+    Return<void> getDevs(bool input, getDevs_cb _hidl_cb) override;
+    Return<Result> setDevVolume(bool input, const hidl_string& devName, float volume) override;
+    Return<Result> setDevMute(bool input, const hidl_string& devName, bool mute) override;
+    Return<void> setDefaultDev(bool input, const hidl_string& devName, bool needInfo, setDefaultDev_cb _hidl_cb) override;
 
   private:
     bool mIsClosed;
