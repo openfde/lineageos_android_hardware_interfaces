@@ -796,4 +796,28 @@
             <instance>default</instance>
         </interface>
     </hal>
+    <hal format="hidl">
+        <name>vendor.openfde.display</name>
+        <version>1.1</version>
+        <interface>
+            <name>IOpenfdeDisplay</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>vendor.openfde.task</name>
+        <version>1.0</version>
+        <interface>
+            <name>IOpenfdeTask</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>vendor.openfde.window</name>
+        <version>1.2</version>
+        <interface>
+            <name>IOpenfdeWindow</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
 </compatibility-matrix>
