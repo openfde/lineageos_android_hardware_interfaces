@@ -103,6 +103,7 @@ cc_library {
         "libmedia_helper",
         "libmediautils_vendor",
         "libstagefright_foundation",
+        "libasound",
     ],
     export_shared_lib_headers: [
         "libaudio_aidl_conversion_common_ndk",
@@ -113,6 +114,12 @@ cc_library {
         "-Werror",
         "-Wthread-safety",
         "-DBACKEND_NDK",
+        //"-Wno-macro-redefined",
+    ],
+    include_dirs: [
+        "external/expat/lib",
+        "system/media/audio_utils/include",
+        "system/media/audio_effects/include"
     ],
 }
 
@@ -136,6 +143,10 @@ cc_binary {
         "liblog",
         "libmedia_helper",
         "libstagefright_foundation",
+        "libasound",
+        "libasound_module_pcm_pulse",
+        "libasound_module_ctl_pulse",
+        "libasound_module_conf_pulse",
     ],
     srcs: ["main.cpp"],
     cflags: [

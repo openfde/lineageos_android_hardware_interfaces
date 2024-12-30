@@ -56,6 +56,7 @@ class StreamAlsa : public StreamCommonImpl {
     const int mReadWriteRetries;
     // All fields below are only used on the worker thread.
     std::vector<alsa::DeviceProxy> mAlsaDeviceProxies;
+    std::vector<alsa::PulseDeviceProxy> mPulseDeviceProxies;
 };
 
 }  // namespace aidl::android::hardware::audio::core

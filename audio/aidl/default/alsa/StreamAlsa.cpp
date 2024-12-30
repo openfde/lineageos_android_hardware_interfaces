@@ -60,54 +60,70 @@ StreamAlsa::StreamAlsa(StreamContext* context, const Metadata& metadata, int rea
 }
 
 ::android::status_t StreamAlsa::standby() {
-    mAlsaDeviceProxies.clear();
+    mPulseDeviceProxies.clear();
     return ::android::OK;
 }
 
 ::android::status_t StreamAlsa::start() {
-    if (!mAlsaDeviceProxies.empty()) {
+    if (!mPulseDeviceProxies.empty()) {
         // This is a resume after a pause.
         return ::android::OK;
     }
-    decltype(mAlsaDeviceProxies) alsaDeviceProxies;
+    decltype(mPulseDeviceProxies) pulseDeviceProxies;
     for (const auto& device : getDeviceProfiles()) {
-        alsa::DeviceProxy proxy;
+        alsa::PulseDeviceProxy proxy;
         if (device.isExternal) {
             // Always ask alsa configure as required since the configuration should be supported
             // by the connected device. That is guaranteed by `setAudioPortConfig` and
             // `setAudioPatch`.
+            #if 0
             proxy = alsa::openProxyForExternalDevice(
                     device, const_cast<struct pcm_config*>(&mConfig.value()),
                     true /*require_exact_match*/);
+            #endif
         } else {
             proxy = alsa::openProxyForAttachedDevice(
                     device, const_cast<struct pcm_config*>(&mConfig.value()), mBufferSizeFrames);
         }
-        if (proxy.get() == nullptr) {
+        if (proxy.getPulseProxy() == nullptr) {
             return ::android::NO_INIT;
         }
-        alsaDeviceProxies.push_back(std::move(proxy));
+        pulseDeviceProxies.push_back(std::move(proxy));
     }
-    mAlsaDeviceProxies = std::move(alsaDeviceProxies);
+    mPulseDeviceProxies = std::move(pulseDeviceProxies);
     return ::android::OK;
 }
 
 ::android::status_t StreamAlsa::transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                          int32_t* latencyMs) {
-    if (mAlsaDeviceProxies.empty()) {
+    if (mPulseDeviceProxies.empty()) {
         LOG(FATAL) << __func__ << ": no opened devices";
         return ::android::NO_INIT;
     }
     const size_t bytesToTransfer = frameCount * mFrameSizeBytes;
     unsigned maxLatency = 0;
     if (mIsInput) {
+        /*
         // For input case, only support single device.
         proxy_read_with_retries(mAlsaDeviceProxies[0].get(), buffer, bytesToTransfer,
                                 mReadWriteRetries);
-        maxLatency = proxy_get_latency(mAlsaDeviceProxies[0].get());
+        */
+        int ret = snd_pcm_readi(mPulseDeviceProxies[0].getPulseProxy()->pcm, buffer, frameCount);
+        if (ret == -EPIPE) {
+            snd_pcm_prepare(mPulseDeviceProxies[0].getPulseProxy()->pcm);
+            ret = snd_pcm_readi(mPulseDeviceProxies[0].getPulseProxy()->pcm, buffer, frameCount);
+        }
+        maxLatency = proxy_get_latency(mPulseDeviceProxies[0].get());
     } else {
-        for (auto& proxy : mAlsaDeviceProxies) {
-            proxy_write_with_retries(proxy.get(), buffer, bytesToTransfer, mReadWriteRetries);
+        for (auto& proxy : mPulseDeviceProxies) {
+            int ret = snd_pcm_writei(proxy.getPulseProxy()->pcm, buffer, frameCount);
+            if (ret == -EPIPE) {
+                snd_pcm_prepare(proxy.getPulseProxy()->pcm);
+                ret = snd_pcm_writei(proxy.getPulseProxy()->pcm, buffer, frameCount);
+            }
+            if (ret > 0) {
+                proxy.get()->transferred += ret;
+            }
             maxLatency = std::max(maxLatency, proxy_get_latency(proxy.get()));
         }
     }
@@ -152,7 +168,7 @@ StreamAlsa::StreamAlsa(StreamContext* context, const Metadata& metadata, int rea
 }
 
 void StreamAlsa::shutdown() {
-    mAlsaDeviceProxies.clear();
+    mPulseDeviceProxies.clear();
 }
 
 }  // namespace aidl::android::hardware::audio::core

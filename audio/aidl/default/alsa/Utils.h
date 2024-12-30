@@ -32,6 +32,12 @@ extern "C" {
 #include <tinyalsa/pcm.h>
 #include "alsa_device_profile.h"
 #include "alsa_device_proxy.h"
+#include <alsa/input.h>
+#include <alsa/output.h>
+#include <alsa/conf.h>
+#include <alsa/global.h>
+#include <pcm_local.h>
+#include <alsa/pcm.h>
 }
 
 namespace aidl::android::hardware::audio::core::alsa {
@@ -42,6 +48,11 @@ struct DeviceProfile {
     int direction; /* PCM_OUT or PCM_IN */
     bool isExternal;
 };
+
+struct SndPcm {
+    snd_pcm_t *pcm;
+};
+
 std::ostream& operator<<(std::ostream& os, const DeviceProfile& device);
 
 class DeviceProxy {
@@ -59,6 +70,18 @@ class DeviceProxy {
     AlsaProxy mProxy;
 };
 
+class PulseDeviceProxy : public DeviceProxy {
+  public:
+    PulseDeviceProxy();  // Constructs a "null" proxy.
+    explicit PulseDeviceProxy(const DeviceProfile& deviceProfile);
+    SndPcm* getPulseProxy() { return mPulseProxy.get(); }
+
+    private:
+    static void pulseProxyDeleter(SndPcm* proxy);
+    using PulseProxy = std::unique_ptr<SndPcm, decltype(pulseProxyDeleter)*>;
+    PulseProxy mPulseProxy;
+};
+
 ::aidl::android::media::audio::common::AudioChannelLayout getChannelLayoutMaskFromChannelCount(
         unsigned int channelCount, int isInput);
 ::aidl::android::media::audio::common::AudioChannelLayout getChannelIndexMaskFromChannelCount(
@@ -73,7 +96,7 @@ std::optional<DeviceProfile> getDeviceProfile(
         const ::aidl::android::media::audio::common::AudioPort& audioPort);
 std::optional<struct pcm_config> getPcmConfig(const StreamContext& context, bool isInput);
 std::vector<int> getSampleRatesFromProfile(const alsa_device_profile* profile);
-DeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
+PulseDeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, size_t bufferFrameCount);
 DeviceProxy openProxyForExternalDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, bool requireExactMatch);

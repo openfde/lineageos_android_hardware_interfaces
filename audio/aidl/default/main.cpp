@@ -74,7 +74,11 @@ int main() {
 
     // Guaranteed log for b/210919187 and logd_integration_test
     LOG(INFO) << "Init for Audio AIDL HAL";
+    char property[PROPERTY_VALUE_MAX];
 
+    if (property_get("openfde.pulse_runtime_path", property, "/run/user/1000/pulse") > 0) {
+        setenv("PULSE_RUNTIME_PATH", property, 1);
+    }
     AudioPolicyConfigXmlConverter audioPolicyConverter{
             ::android::audio_get_audio_policy_config_file()};
 

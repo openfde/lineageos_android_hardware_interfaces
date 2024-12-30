@@ -54,6 +54,23 @@ void DeviceProxy::alsaProxyDeleter(alsa_device_proxy* proxy) {
     }
 }
 
+PulseDeviceProxy::PulseDeviceProxy() : DeviceProxy(), mPulseProxy(nullptr, pulseProxyDeleter) {}
+
+PulseDeviceProxy::PulseDeviceProxy(const DeviceProfile& deviceProfile)
+    : DeviceProxy(deviceProfile), mPulseProxy(new SndPcm, pulseProxyDeleter) {
+    memset(mPulseProxy.get(), 0, sizeof(SndPcm));
+}
+
+void PulseDeviceProxy::pulseProxyDeleter(SndPcm* proxy) {
+    if (proxy != nullptr) {
+        ALOGD("pulseProxyDeleter() [snd_pcm_t:%p]", proxy);
+        if (proxy->pcm != nullptr) {
+            snd_pcm_close(proxy->pcm);
+        }
+        delete proxy;
+    }
+}
+
 namespace {
 
 using AudioChannelCountToMaskMap = std::map<unsigned int, AudioChannelLayout>;
@@ -277,31 +294,125 @@ std::vector<int> getSampleRatesFromProfile(const alsa_device_profile* profile) {
     }
     return sampleRates;
 }
+static snd_pcm_format_t pcmFormatToAlsa(enum pcm_format format)
+{
+    switch (format) {
+    case PCM_FORMAT_S32_LE:
+        return SNDRV_PCM_FORMAT_S32_LE;
+    case PCM_FORMAT_S8:
+        return SNDRV_PCM_FORMAT_S8;
+    case PCM_FORMAT_S24_3LE:
+        return SNDRV_PCM_FORMAT_S24_3LE;
+    case PCM_FORMAT_S24_LE:
+        return SNDRV_PCM_FORMAT_S24_LE;
+    default:
+    case PCM_FORMAT_S16_LE:
+        return SNDRV_PCM_FORMAT_S16_LE;
+    };
+}
 
-DeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
+PulseDeviceProxy openProxyForAttachedDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, size_t bufferFrameCount) {
     if (deviceProfile.isExternal) {
         LOG(FATAL) << __func__ << ": called for an external device, address=" << deviceProfile;
     }
-    DeviceProxy proxy(deviceProfile);
+    PulseDeviceProxy proxy(deviceProfile);
     if (!profile_fill_builtin_device_info(proxy.getProfile(), pcmConfig, bufferFrameCount)) {
         LOG(FATAL) << __func__ << ": failed to init for built-in device, address=" << deviceProfile;
     }
     if (int err = proxy_prepare_from_default_config(proxy.get(), proxy.getProfile()); err != 0) {
         LOG(FATAL) << __func__ << ": fail to prepare for device address=" << deviceProfile
                    << " error=" << err;
-        return DeviceProxy();
+        return PulseDeviceProxy();
     }
+#if 0
     if (int err = proxy_open(proxy.get()); err != 0) {
         LOG(ERROR) << __func__ << ": failed to open device, address=" << deviceProfile
                    << " error=" << err;
         return DeviceProxy();
     }
+#else
+    snd_pcm_hw_params_t *hwparams = NULL;
+    unsigned int pcm_retry_count = 100;
+    int ret;
+    while (1) {
+        ret = snd_pcm_open(&proxy.getPulseProxy()->pcm, "pulse", 
+            deviceProfile.direction == PCM_OUT ? SND_PCM_STREAM_PLAYBACK : SND_PCM_STREAM_CAPTURE, 0);
+        if (ret < 0) {
+            if (proxy.getPulseProxy()->pcm != NULL) {
+                snd_pcm_close(proxy.getPulseProxy()->pcm);
+            }
+            if (--pcm_retry_count == 0) {
+                LOG(ERROR) << __func__ << ": Failed to open pcm_out after 100 tries";
+                return PulseDeviceProxy();
+            }
+            usleep(20 * 1000);
+        } else {
+            break;
+        }
+    }
+
+    snd_pcm_hw_params_alloca(&hwparams);
+    if (snd_pcm_hw_params_any(proxy.getPulseProxy()->pcm, hwparams) < 0) {
+        LOG(ERROR) << __func__ << ": Can not configure this PCM device.";
+        return PulseDeviceProxy();
+    }
+
+    if (snd_pcm_hw_params_set_access(proxy.getPulseProxy()->pcm, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
+        LOG(ERROR) << __func__ << ": Error setting access.";
+        return PulseDeviceProxy();
+    }
+
+    if (snd_pcm_hw_params_set_format(proxy.getPulseProxy()->pcm, hwparams, pcmFormatToAlsa(proxy.getProfile()->formats[0])) < 0) {
+        LOG(ERROR) << __func__ << ": Error setting format.";
+        return PulseDeviceProxy();
+    }
+
+    if (INTERNAL(snd_pcm_hw_params_set_rate_near)(proxy.getPulseProxy()->pcm, hwparams, &proxy.getProfile()->sample_rates[0], 0) < 0) {
+        LOG(ERROR) << __func__ << ": Error setting rate.";
+        return PulseDeviceProxy();
+    }
+
+    if (snd_pcm_hw_params_set_channels(proxy.getPulseProxy()->pcm, hwparams, proxy.getProfile()->channel_counts[0]) < 0) {
+        LOG(ERROR) << __func__ << ": Error setting channels.";
+        return PulseDeviceProxy();
+    }
+
+    if (deviceProfile.direction == PCM_OUT) {
+        if (snd_pcm_hw_params_set_periods(proxy.getPulseProxy()->pcm, hwparams, proxy.getProfile()->default_config.period_count, 0) < 0) {
+            LOG(ERROR) << __func__ << ": Error setting periods.";
+            return PulseDeviceProxy();
+        }
+
+        if (snd_pcm_hw_params_set_buffer_size(proxy.getPulseProxy()->pcm, hwparams, 
+                proxy.getProfile()->default_config.period_size * proxy.get()->frame_size) < 0) {
+            LOG(ERROR) << __func__ << ": Error setting periods.";
+            return PulseDeviceProxy();
+        }
+    }
+
+    if (snd_pcm_hw_params(proxy.getPulseProxy()->pcm, hwparams) < 0) {
+        LOG(ERROR) << __func__ << ": Error setting HW params.";
+        return PulseDeviceProxy();
+    }
+
+    if (snd_pcm_prepare(proxy.getPulseProxy()->pcm) < 0) {
+       LOG(ERROR) << __func__ << ": Can not prepare this PCM device.";
+        return PulseDeviceProxy();
+    }
+
+    if (snd_pcm_state(proxy.getPulseProxy()->pcm) != SND_PCM_STATE_PREPARED) {
+        LOG(ERROR) << __func__ << ": cannot open pcm_out driver";
+        snd_pcm_close(proxy.getPulseProxy()->pcm);
+        return PulseDeviceProxy();
+    }
+#endif
     return proxy;
 }
 
 DeviceProxy openProxyForExternalDevice(const DeviceProfile& deviceProfile,
                                        struct pcm_config* pcmConfig, bool requireExactMatch) {
+                                       LOG(ERROR) << "FUNC: " << __FUNCTION__ << ", FILE: " << __FILE__ << ", LINE: " << __LINE__;
     if (!deviceProfile.isExternal) {
         LOG(FATAL) << __func__ << ": called for an attached device, address=" << deviceProfile;
     }
