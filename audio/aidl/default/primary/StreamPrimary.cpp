@@ -64,6 +64,7 @@ StreamPrimary::StreamPrimary(StreamContext* context, const Metadata& metadata)
         mSkipNextTransfer = false;
     }
     if (!mIsAsynchronous) {
+        /*
         const long bufferDurationUs =
                 (*actualFrameCount) * MICROS_PER_SECOND / mContext.getSampleRate();
         const auto totalDurationUs =
@@ -79,6 +80,7 @@ StreamPrimary::StreamPrimary(StreamContext* context, const Metadata& metadata)
         } else {
             mSkipNextTransfer = true;
         }
+        */
     } else {
         LOG(VERBOSE) << __func__ << ": asynchronous transfer";
     }
