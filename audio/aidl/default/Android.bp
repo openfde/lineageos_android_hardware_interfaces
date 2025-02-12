@@ -81,6 +81,7 @@ cc_library {
         "usb/ModuleUsb.cpp",
         "usb/StreamUsb.cpp",
         "usb/UsbAlsaMixerControl.cpp",
+        "pactl/PaVolumeCtl.c",
     ],
     generated_sources: [
         "audio_policy_configuration_aidl_default",
@@ -111,15 +112,19 @@ cc_library {
     cflags: [
         "-Wall",
         "-Wextra",
-        "-Werror",
+        "-Wno-error",
         "-Wthread-safety",
         "-DBACKEND_NDK",
+        "-DPACKAGE",
+        "-DPACKAGE_NAME=\"pulseaudio\"",
+        "-DPACKAGE_VERSION=\"1.99\"",
         //"-Wno-macro-redefined",
     ],
     include_dirs: [
         "external/expat/lib",
         "system/media/audio_utils/include",
-        "system/media/audio_effects/include"
+        "system/media/audio_effects/include",
+        "external/pulseaudio/src"
     ],
 }
 
@@ -147,6 +152,7 @@ cc_binary {
         "libasound_module_pcm_pulse",
         "libasound_module_ctl_pulse",
         "libasound_module_conf_pulse",
+        "libpulse",
     ],
     srcs: ["main.cpp"],
     cflags: [

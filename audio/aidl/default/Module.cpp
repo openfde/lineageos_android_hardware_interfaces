@@ -33,6 +33,7 @@
 #include "core-impl/ModuleUsb.h"
 #include "core-impl/SoundDose.h"
 #include "core-impl/utils.h"
+#include "pactl/PaVolumeCtl.h"
 
 using aidl::android::hardware::audio::common::frameCountFromDurationMs;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
@@ -1248,7 +1249,8 @@ ndk::ScopedAStatus Module::resetAudioPortConfig(int32_t in_portConfigId) {
 }
 
 ndk::ScopedAStatus Module::getMasterMute(bool* _aidl_return) {
-    *_aidl_return = mMasterMute;
+    pa_get_master_mute(_aidl_return);
+    mMasterMute = *_aidl_return;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
@@ -1269,7 +1271,8 @@ ndk::ScopedAStatus Module::setMasterMute(bool in_mute) {
 }
 
 ndk::ScopedAStatus Module::getMasterVolume(float* _aidl_return) {
-    *_aidl_return = mMasterVolume;
+    pa_get_master_volume(_aidl_return);
+    mMasterVolume = *_aidl_return;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
@@ -1368,6 +1371,50 @@ ndk::ScopedAStatus Module::getVendorParameters(const std::vector<std::string>& i
         }
     }
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
+    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+}
+
+ndk::ScopedAStatus Module::getDevs(bool input, std::string* result) {
+    if (result) {
+        char * info = input ? pa_get_input_devs() : pa_get_output_devs();
+        if (info == NULL) {
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+        }
+        result->replace(0, strlen(info) + 1, info);
+        free(info);
+        return ndk::ScopedAStatus::ok();
+    }
+    LOG(ERROR) << __func__ << ": invalid result";
+    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+}
+
+ndk::ScopedAStatus Module::setDevVolume(bool input, const std::string& devName, float volume) {
+    int ret = input ? pa_set_input_dev_volume(devName.c_str(), volume) : pa_set_output_dev_volume(devName.c_str(), volume);
+    if (ret) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus Module::setDevMute(bool input, const std::string& devName, bool mute) {
+    int ret = input ? pa_set_input_dev_mute(devName.c_str(), mute) : pa_set_output_dev_mute(devName.c_str(), mute);
+    if (ret) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus Module::setDefaultDev(bool input, const std::string& devName, bool needInfo, std::string* result) {
+    if (result) {
+        char * info = input ? pa_set_input_default_dev(devName.c_str(), needInfo) : pa_set_output_default_dev(devName.c_str(), needInfo);
+        if (info == NULL) {
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+        }
+        result->replace(0, strlen(info) + 1, info);
+        free(info);
+        return ndk::ScopedAStatus::ok();
+    }
+    LOG(ERROR) << __func__ << ": invalid result";
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
@@ -1580,13 +1627,13 @@ void Module::onPrepareToDisconnectExternalDevice(
     LOG(DEBUG) << __func__ << ": do nothing and return";
 }
 
-ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute __unused) {
-    LOG(VERBOSE) << __func__ << ": do nothing and return ok";
+ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute) {
+    pa_set_master_mute(mute);
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume __unused) {
-    LOG(VERBOSE) << __func__ << ": do nothing and return ok";
+ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume) {
+    pa_set_master_volume(volume);
     return ndk::ScopedAStatus::ok();
 }
 

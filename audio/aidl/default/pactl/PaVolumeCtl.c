@@ -1,5 +1,5 @@
 #define LOG_TAG "audio_pa_volume"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -1168,13 +1168,4 @@ char *pa_set_input_default_dev(const char *dev_name, bool need_info)
 char *pa_set_output_default_dev(const char *dev_name, bool need_info)
 {
     return pa_set_default_dev(false, dev_name, need_info);
-}
-int mainn(int args, char **argv)
-{
-    if (args == 2 && strcmp(argv[1], "out") == 0) {
-        ALOGE("pa_get_output_devs: %s", pa_get_output_devs());
-    } else if (args == 2 && strcmp(argv[1], "in") == 0) {
-        ALOGE("pa_get_input_devs: %s", pa_get_input_devs());
-    }
-    return 0;
 }

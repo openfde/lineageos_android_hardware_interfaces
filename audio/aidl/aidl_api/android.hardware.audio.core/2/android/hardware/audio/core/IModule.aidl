@@ -75,6 +75,10 @@ interface IModule {
   int getAAudioMixerBurstCount();
   int getAAudioHardwareBurstMinUsec();
   void prepareToDisconnectExternalDevice(int portId);
+  @utf8InCpp String getDevs(boolean input);
+  void setDevVolume(boolean input, in @utf8InCpp String devName, float volume);
+  void setDevMute(boolean input, in @utf8InCpp String devName, boolean mute);
+  @utf8InCpp String setDefaultDev(boolean input, in @utf8InCpp String devName, boolean needInfo);
   const int DEFAULT_AAUDIO_MIXER_BURST_COUNT = 2;
   const int DEFAULT_AAUDIO_HARDWARE_BURST_MIN_DURATION_US = 1000;
   @VintfStability
