@@ -1,0 +1,37 @@
+diff --git a/audio/common/all-versions/default/service/Android.bp b/audio/common/all-versions/default/service/Android.bp
+index 3e8b71570..6c934e355 100644
+--- a/audio/common/all-versions/default/service/Android.bp
++++ b/audio/common/all-versions/default/service/Android.bp
+@@ -8,7 +8,6 @@ cc_binary {
+     // location for init to start it and the build system does not support
+     // having two binaries installable to the same location even if they are
+     // not installed in the same build.
+-    compile_multilib: "32",
+     srcs: ["service.cpp"],
+ 
+     cflags: [
+diff --git a/bluetooth/1.0/default/vendor_interface.cc b/bluetooth/1.0/default/vendor_interface.cc
+index d809313db..d63c51856 100644
+--- a/bluetooth/1.0/default/vendor_interface.cc
++++ b/bluetooth/1.0/default/vendor_interface.cc
+@@ -343,7 +343,7 @@ void VendorInterface::OnFirmwareConfigured(uint8_t result) {
+   lib_interface_->op(BT_VND_OP_GET_LPM_IDLE_TIMEOUT, &lpm_timeout_ms);
+   ALOGI("%s: lpm_timeout_ms %d", __func__, lpm_timeout_ms);
+ 
+-  bt_vendor_lpm_mode_t mode = BT_VND_LPM_ENABLE;
++  bt_vendor_lpm_mode_t mode = BT_VND_LPM_DISABLE;
+   lib_interface_->op(BT_VND_OP_LPM_SET_MODE, &mode);
+ 
+   ALOGD("%s Calling StartLowPowerWatchdog()", __func__);
+diff --git a/camera/provider/2.5/default/Android.bp b/camera/provider/2.5/default/Android.bp
+index 9ddf65144..27bf32b43 100644
+--- a/camera/provider/2.5/default/Android.bp
++++ b/camera/provider/2.5/default/Android.bp
+@@ -154,7 +154,6 @@ cc_binary {
+     proprietary: true,
+     relative_install_path: "hw",
+     srcs: ["external-service.cpp"],
+-    compile_multilib: "32",
+     init_rc: ["android.hardware.camera.provider@2.5-external-service.rc"],
+     shared_libs: [
+         "android.hardware.camera.common@1.0",
