@@ -43,7 +43,7 @@ namespace {
 // "device@<version>/external/<id>"
 const std::regex kDeviceNameRE("device@([0-9]+\\.[0-9]+)/external/(.+)");
 const int kMaxDevicePathLen = 256;
-constexpr char kDevicePath[] = "/dev/";
+constexpr char kDevicePath[] = "/dev/block/";
 constexpr char kPrefix[] = "video";
 constexpr int kPrefixLen = sizeof(kPrefix) - 1;
 constexpr int kDevicePrefixLen = sizeof(kDevicePath) + kPrefixLen - 1;
@@ -56,7 +56,7 @@ bool matchDeviceName(int cameraIdOffset, const std::string& deviceName, std::str
             *deviceVersion = sm[1];
         }
         if (cameraDevicePath != nullptr) {
-            *cameraDevicePath = "/dev/video" + std::to_string(std::stoi(sm[2]) - cameraIdOffset);
+            *cameraDevicePath = "/dev/block/video" + std::to_string(std::stoi(sm[2]) - cameraIdOffset);
         }
         return true;
     }

@@ -2740,7 +2740,9 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
         return false;
     };
 
-    if (req->frameIn->mFourcc != V4L2_PIX_FMT_MJPEG && req->frameIn->mFourcc != V4L2_PIX_FMT_Z16) {
+    if (req->frameIn->mFourcc != V4L2_PIX_FMT_MJPEG
+        && req->frameIn->mFourcc != V4L2_PIX_FMT_Z16
+        && req->frameIn->mFourcc != V4L2_PIX_FMT_YUYV) {
         return onDeviceError("%s: do not support V4L2 format %c%c%c%c", __FUNCTION__,
                              req->frameIn->mFourcc & 0xFF, (req->frameIn->mFourcc >> 8) & 0xFF,
                              (req->frameIn->mFourcc >> 16) & 0xFF,
@@ -2788,7 +2790,7 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
     }
 
     // TODO: in some special case maybe we can decode jpg directly to gralloc output?
-    if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
+    if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
         res = 0;
         if (mCameraMuted) {
@@ -2800,12 +2802,21 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
                     mYu12Frame->mWidth, mYu12Frame->mHeight, mYu12Frame->mWidth,
                     mYu12Frame->mHeight, libyuv::kRotate0, libyuv::FOURCC_RAW);
         } else {
-            res = libyuv::MJPGToI420(
+            if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
+                res = libyuv::MJPGToI420(
                     inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
                     mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
                     mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
                     mYu12FrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
                     mYu12Frame->mWidth, mYu12Frame->mHeight);
+            } else {
+                res = libyuv::ConvertToI420(
+                    inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
+                    mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
+                    mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
+                    mYu12FrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                    mYu12Frame->mWidth, mYu12Frame->mHeight, libyuv::kRotate0, V4L2_PIX_FMT_YUYV);
+            }
         }
         ATRACE_END();
 
