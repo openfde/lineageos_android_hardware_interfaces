@@ -22,6 +22,7 @@
 #include "ExternalCameraDeviceSession.h"
 
 #include "android-base/macros.h"
+#include <cutils/properties.h>
 #include <utils/Timers.h>
 #include <utils/Trace.h>
 #include <linux/videodev2.h>
@@ -92,6 +93,7 @@ ExternalCameraDeviceSession::ExternalCameraDeviceSession(
         const sp<ICameraDeviceCallback>& callback,
         const ExternalCameraConfig& cfg,
         const std::vector<SupportedV4L2Format>& sortedFormats,
+        const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
         const CroppingType& croppingType,
         const common::V1_0::helper::CameraMetadata& chars,
         const std::string& cameraId,
@@ -100,6 +102,7 @@ ExternalCameraDeviceSession::ExternalCameraDeviceSession(
         mCfg(cfg),
         mCameraCharacteristics(chars),
         mSupportedFormats(sortedFormats),
+        mMesaSupportedFormats(sortedMesaFormats),
         mCroppingType(croppingType),
         mCameraId(cameraId),
         mV4l2Fd(std::move(v4l2Fd)),
@@ -110,6 +113,12 @@ bool ExternalCameraDeviceSession::initialize() {
     if (mV4l2Fd.get() < 0) {
         ALOGE("%s: invalid v4l2 device fd %d!", __FUNCTION__, mV4l2Fd.get());
         return true;
+    }
+
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.hardware.egl", value, "none");
+    if (!strcmp(value, "mesa")) {
+        mUseMesa = true;
     }
 
     struct v4l2_capability capability;
@@ -1181,7 +1190,13 @@ int ExternalCameraDeviceSession::OutputThread::cropAndScaleThumbLocked(
  * HAL_PIXEL_FORMAT_BLOB to the framework */
 Size ExternalCameraDeviceSession::getMaxJpegResolution() const {
     Size ret { 0, 0 };
-    for(auto & fmt : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mMesaSupportedFormats) {
+            formatsOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+        }
+    }
+    for(auto & fmt : mUseMesa ? formatsOnlyForMesa : mSupportedFormats) {
         if(fmt.width * fmt.height > ret.width * ret.height) {
             ret = Size { fmt.width, fmt.height };
         }
@@ -1438,7 +1453,9 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
         return false;
     };
 
-    if (req->frameIn->mFourcc != V4L2_PIX_FMT_MJPEG && req->frameIn->mFourcc != V4L2_PIX_FMT_Z16) {
+    if (req->frameIn->mFourcc != V4L2_PIX_FMT_MJPEG
+        && req->frameIn->mFourcc != V4L2_PIX_FMT_Z16
+        && req->frameIn->mFourcc != V4L2_PIX_FMT_YUYV) {
         return onDeviceError("%s: do not support V4L2 format %c%c%c%c", __FUNCTION__,
                 req->frameIn->mFourcc & 0xFF,
                 (req->frameIn->mFourcc >> 8) & 0xFF,
@@ -1463,13 +1480,25 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
     }
 
     // TODO: in some special case maybe we can decode jpg directly to gralloc output?
-    if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
+    if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
-        int res = libyuv::MJPGToI420(
-            inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y), mYu12FrameLayout.yStride,
-            static_cast<uint8_t*>(mYu12FrameLayout.cb), mYu12FrameLayout.cStride,
-            static_cast<uint8_t*>(mYu12FrameLayout.cr), mYu12FrameLayout.cStride,
-            mYu12Frame->mWidth, mYu12Frame->mHeight, mYu12Frame->mWidth, mYu12Frame->mHeight);
+        int res;
+        if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
+            res = libyuv::MJPGToI420(
+                inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
+                mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
+                mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
+                mYu12FrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                mYu12Frame->mWidth, mYu12Frame->mHeight);
+        } else {
+            res = libyuv::ConvertToI420(
+                inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
+                mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
+                mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
+                mYu12FrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                mYu12Frame->mWidth, mYu12Frame->mHeight, libyuv::kRotate0, V4L2_PIX_FMT_YUYV);
+        }
+
         ATRACE_END();
 
         if (res != 0) {
@@ -2254,8 +2283,12 @@ Status ExternalCameraDeviceSession::configureStreams(
         V3_3::HalStreamConfiguration* out,
         uint32_t blobBufferSize) {
     ATRACE_CALL();
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
+    for (const auto& supportedFormat : mMesaSupportedFormats) {
+        formatsOnlyForMesa.push_back(supportedFormat.second);
+    }
 
-    Status status = isStreamCombinationSupported(config, mSupportedFormats, mCfg);
+    Status status = isStreamCombinationSupported(config, mUseMesa ? formatsOnlyForMesa : mSupportedFormats, mCfg);
     if (status != Status::OK) {
         return status;
     }
@@ -2325,7 +2358,13 @@ Status ExternalCameraDeviceSession::configureStreams(
     }
     // Find the smallest format that matches the desired aspect ratio and is wide/high enough
     SupportedV4L2Format v4l2Fmt {.width = 0, .height = 0};
-    for (const auto& fmt : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsRawOnlyForMesa;
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mMesaSupportedFormats) {
+            formatsRawOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+        }
+    }
+    for (const auto& fmt : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
         uint32_t dim = (mCroppingType == VERTICAL) ? fmt.width : fmt.height;
         if (dim >= maxDim) {
             float aspectRatio = ASPECT_RATIO(fmt);
@@ -2339,7 +2378,7 @@ Status ExternalCameraDeviceSession::configureStreams(
     }
     if (v4l2Fmt.width == 0) {
         // Cannot find exact good aspect ratio candidate, try to find a close one
-        for (const auto& fmt : mSupportedFormats) {
+        for (const auto& fmt : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
             uint32_t dim = (mCroppingType == VERTICAL) ? fmt.width : fmt.height;
             if (dim >= maxDim) {
                 float aspectRatio = ASPECT_RATIO(fmt);
@@ -2509,7 +2548,11 @@ status_t ExternalCameraDeviceSession::initDefaultRequests() {
 
     bool support30Fps = false;
     int32_t maxFps = std::numeric_limits<int32_t>::min();
-    for (const auto& supportedFormat : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsRawOnlyForMesa;
+    for (const auto& supportedFormat : mMesaSupportedFormats) {
+        formatsRawOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+    }
+    for (const auto& supportedFormat : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
         for (const auto& fr : supportedFormat.frameRates) {
             int32_t framerateInt = static_cast<int32_t>(fr.getDouble());
             if (maxFps < framerateInt) {

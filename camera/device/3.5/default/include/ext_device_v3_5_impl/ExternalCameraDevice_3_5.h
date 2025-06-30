@@ -76,6 +76,7 @@ protected:
             const sp<V3_2::ICameraDeviceCallback>&,
             const ExternalCameraConfig& cfg,
             const std::vector<SupportedV4L2Format>& sortedFormats,
+            const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
             const CroppingType& croppingType,
             const common::V1_0::helper::CameraMetadata& chars,
             const std::string& cameraId,
