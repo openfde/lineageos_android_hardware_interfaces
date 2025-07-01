@@ -31,12 +31,13 @@ ExternalCameraDeviceSession::ExternalCameraDeviceSession(
         const sp<V3_2::ICameraDeviceCallback>& callback,
         const ExternalCameraConfig& cfg,
         const std::vector<SupportedV4L2Format>& sortedFormats,
+        const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
         const CroppingType& croppingType,
         const common::V1_0::helper::CameraMetadata& chars,
         const std::string& cameraId,
         unique_fd v4l2Fd) :
         V3_4::implementation::ExternalCameraDeviceSession(
-                callback, cfg, sortedFormats, croppingType, chars, cameraId, std::move(v4l2Fd)) {
+                callback, cfg, sortedFormats, sortedMesaFormats, croppingType, chars, cameraId, std::move(v4l2Fd)) {
 
     mCallback_3_5 = nullptr;
 

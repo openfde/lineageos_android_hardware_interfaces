@@ -90,6 +90,7 @@ struct ExternalCameraDeviceSession : public virtual RefBase,
     ExternalCameraDeviceSession(const sp<ICameraDeviceCallback>&,
             const ExternalCameraConfig& cfg,
             const std::vector<SupportedV4L2Format>& sortedFormats,
+            const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
             const CroppingType& croppingType,
             const common::V1_0::helper::CameraMetadata& chars,
             const std::string& cameraId,
@@ -110,6 +111,7 @@ struct ExternalCameraDeviceSession : public virtual RefBase,
     static const int kMaxProcessedStream = 2;
     static const int kMaxStallStream = 1;
     static const uint32_t kMaxBytesPerPixel = 2;
+    bool mUseMesa = false;
 
     class OutputThread : public android::Thread {
     public:
@@ -320,6 +322,7 @@ protected:
     const ExternalCameraConfig& mCfg;
     const common::V1_0::helper::CameraMetadata mCameraCharacteristics;
     const std::vector<SupportedV4L2Format> mSupportedFormats;
+    const std::vector<std::pair<int, SupportedV4L2Format>> mMesaSupportedFormats;
     const CroppingType mCroppingType;
     const std::string mCameraId;
 

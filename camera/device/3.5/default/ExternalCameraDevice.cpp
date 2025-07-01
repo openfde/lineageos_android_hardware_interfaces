@@ -45,12 +45,13 @@ sp<V3_4::implementation::ExternalCameraDeviceSession> ExternalCameraDevice::crea
         const sp<V3_2::ICameraDeviceCallback>& cb,
         const ExternalCameraConfig& cfg,
         const std::vector<SupportedV4L2Format>& sortedFormats,
+        const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
         const CroppingType& croppingType,
         const common::V1_0::helper::CameraMetadata& chars,
         const std::string& cameraId,
         unique_fd v4l2Fd) {
     return new ExternalCameraDeviceSession(
-            cb, cfg, sortedFormats, croppingType, chars, cameraId, std::move(v4l2Fd));
+            cb, cfg, sortedFormats, sortedMesaFormats, croppingType, chars, cameraId, std::move(v4l2Fd));
 }
 
 #define UPDATE(tag, data, size)                    \
