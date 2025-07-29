@@ -1479,25 +1479,45 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
         return onDeviceError("%s: V4L2 buffer map failed", __FUNCTION__);
     }
 
+    sp<AllocatedFrame> tmpFrame;
     // TODO: in some special case maybe we can decode jpg directly to gralloc output?
     if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
         int res;
+        YCbCrLayout tmpFrameLayout;
+        tmpFrame = new AllocatedFrame(mYu12Frame->mWidth, mYu12Frame->mHeight);
+        int ret = tmpFrame->allocate(&tmpFrameLayout);
+        if (ret != 0) {
+            ALOGE("%s: allocating YU12 frame failed!", __FUNCTION__);
+            return false;
+        }
+
         if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
             res = libyuv::MJPGToI420(
-                inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
-                mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
-                mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
-                mYu12FrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                inData, inDataSize, static_cast<uint8_t*>(tmpFrameLayout.y),
+                tmpFrameLayout.yStride, static_cast<uint8_t*>(tmpFrameLayout.cb),
+                tmpFrameLayout.cStride, static_cast<uint8_t*>(tmpFrameLayout.cr),
+                tmpFrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
                 mYu12Frame->mWidth, mYu12Frame->mHeight);
         } else {
             res = libyuv::ConvertToI420(
-                inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
-                mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
-                mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
-                mYu12FrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                inData, inDataSize, static_cast<uint8_t*>(tmpFrameLayout.y),
+                tmpFrameLayout.yStride, static_cast<uint8_t*>(tmpFrameLayout.cb),
+                tmpFrameLayout.cStride, static_cast<uint8_t*>(tmpFrameLayout.cr),
+                tmpFrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
                 mYu12Frame->mWidth, mYu12Frame->mHeight, libyuv::kRotate0, V4L2_PIX_FMT_YUYV);
         }
+
+        if (res == 0) {
+            res = libyuv::I420Mirror(static_cast<uint8_t*>(tmpFrameLayout.y), tmpFrameLayout.yStride,
+                static_cast<uint8_t*>(tmpFrameLayout.cb), tmpFrameLayout.cStride,
+                static_cast<uint8_t*>(tmpFrameLayout.cr), tmpFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.y), tmpFrameLayout.yStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cb), tmpFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cr), tmpFrameLayout.cStride,
+                mYu12Frame->mWidth, mYu12Frame->mHeight);
+        }
+        tmpFrame.clear();
 
         ATRACE_END();
 
