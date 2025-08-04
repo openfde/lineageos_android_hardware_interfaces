@@ -674,11 +674,10 @@ status_t ExternalCameraDevice::initOutputCharskeysByFormat(
             streamConfigurations.push_back(streamConfigTag);
             std::string wantedStr = std::to_string(supportedFormat.width)
                 + "x" + (mUseMesa ? "" : std::to_string(supportedFormat.height));
-            if ((std::find(mUseMesa ? wantedMesaResolutions.begin() :
-                wantedResolutions.begin(), mUseMesa ? wantedMesaResolutions.end() :
-                wantedResolutions.end(), wantedStr)
-                != wantedResolutions.end()) &&  (resolutions.find(wantedStr) ==
-                std::string::npos)) {
+            if ((mUseMesa ? (std::find(wantedMesaResolutions.begin(),
+                wantedMesaResolutions.end(), wantedStr) != wantedMesaResolutions.end()) :
+                (std::find(wantedResolutions.begin(), wantedResolutions.end(), wantedStr)
+                != wantedResolutions.end())) &&  (resolutions.find(wantedStr) == std::string::npos)) {
                 wantedStr += mUseMesa ? std::to_string(supportedFormat.height) : "";
                 resolutions = resolutions.empty() ? wantedStr : (resolutions + "," + wantedStr);
             }
