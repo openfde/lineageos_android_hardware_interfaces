@@ -1484,40 +1484,46 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
     if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
         int res;
+        int8_t mirror = property_get_bool("persist.fde.mirror", true);
         YCbCrLayout tmpFrameLayout;
-        tmpFrame = new AllocatedFrame(mYu12Frame->mWidth, mYu12Frame->mHeight);
-        int ret = tmpFrame->allocate(&tmpFrameLayout);
-        if (ret != 0) {
-            ALOGE("%s: allocating YU12 frame failed!", __FUNCTION__);
-            return false;
+        YCbCrLayout& realFrameLayout = mirror ? tmpFrameLayout : mYu12FrameLayout;
+        if (mirror) {
+            tmpFrame = new AllocatedFrame(mYu12Frame->mWidth, mYu12Frame->mHeight);
+            int ret = tmpFrame->allocate(&realFrameLayout);
+            if (ret != 0) {
+                ALOGE("%s: allocating YU12 frame failed!", __FUNCTION__);
+                return false;
+            }
         }
 
         if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
             res = libyuv::MJPGToI420(
-                inData, inDataSize, static_cast<uint8_t*>(tmpFrameLayout.y),
-                tmpFrameLayout.yStride, static_cast<uint8_t*>(tmpFrameLayout.cb),
-                tmpFrameLayout.cStride, static_cast<uint8_t*>(tmpFrameLayout.cr),
-                tmpFrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                inData, inDataSize, static_cast<uint8_t*>(realFrameLayout.y),
+                realFrameLayout.yStride, static_cast<uint8_t*>(realFrameLayout.cb),
+                realFrameLayout.cStride, static_cast<uint8_t*>(realFrameLayout.cr),
+                realFrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
                 mYu12Frame->mWidth, mYu12Frame->mHeight);
         } else {
             res = libyuv::ConvertToI420(
-                inData, inDataSize, static_cast<uint8_t*>(tmpFrameLayout.y),
-                tmpFrameLayout.yStride, static_cast<uint8_t*>(tmpFrameLayout.cb),
-                tmpFrameLayout.cStride, static_cast<uint8_t*>(tmpFrameLayout.cr),
-                tmpFrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                inData, inDataSize, static_cast<uint8_t*>(realFrameLayout.y),
+                realFrameLayout.yStride, static_cast<uint8_t*>(realFrameLayout.cb),
+                realFrameLayout.cStride, static_cast<uint8_t*>(realFrameLayout.cr),
+                realFrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
                 mYu12Frame->mWidth, mYu12Frame->mHeight, libyuv::kRotate0, V4L2_PIX_FMT_YUYV);
         }
 
-        if (res == 0) {
-            res = libyuv::I420Mirror(static_cast<uint8_t*>(tmpFrameLayout.y), tmpFrameLayout.yStride,
-                static_cast<uint8_t*>(tmpFrameLayout.cb), tmpFrameLayout.cStride,
-                static_cast<uint8_t*>(tmpFrameLayout.cr), tmpFrameLayout.cStride,
-                static_cast<uint8_t*>(mYu12FrameLayout.y), tmpFrameLayout.yStride,
-                static_cast<uint8_t*>(mYu12FrameLayout.cb), tmpFrameLayout.cStride,
-                static_cast<uint8_t*>(mYu12FrameLayout.cr), tmpFrameLayout.cStride,
+        if (mirror && (res == 0)) {
+            res = libyuv::I420Mirror(static_cast<uint8_t*>(realFrameLayout.y), realFrameLayout.yStride,
+                static_cast<uint8_t*>(realFrameLayout.cb), realFrameLayout.cStride,
+                static_cast<uint8_t*>(realFrameLayout.cr), realFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.y), realFrameLayout.yStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cb), realFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cr), realFrameLayout.cStride,
                 mYu12Frame->mWidth, mYu12Frame->mHeight);
         }
-        tmpFrame.clear();
+        if (mirror) {
+            tmpFrame.clear();
+        }
 
         ATRACE_END();
 
