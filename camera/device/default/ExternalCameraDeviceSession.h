@@ -66,6 +66,7 @@ class ExternalCameraDeviceSession : public BnCameraDeviceSession, public OutputT
     ExternalCameraDeviceSession(const std::shared_ptr<ICameraDeviceCallback>&,
                                 const ExternalCameraConfig& cfg,
                                 const std::vector<SupportedV4L2Format>& sortedFormats,
+                                const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
                                 const CroppingType& croppingType,
                                 const common::V1_0::helper::CameraMetadata& chars,
                                 const std::string& cameraId, unique_fd v4l2Fd);
@@ -123,6 +124,7 @@ class ExternalCameraDeviceSession : public BnCameraDeviceSession, public OutputT
     static const int kMaxProcessedStream = 2;
     static const int kMaxStallStream = 1;
     static const uint32_t kMaxBytesPerPixel = 2;
+    bool mUseMesa = false;
 
     class BufferRequestThread : public SimpleThread {
       public:
@@ -153,7 +155,7 @@ class ExternalCameraDeviceSession : public BnCameraDeviceSession, public OutputT
         // when requesting 1st buffer from a stream.
         // TODO: consider a separate timeout for new vs. steady state?
         // TODO: or make sure framework is warming up the pipeline during configure new stream?
-        static const int kReqProcTimeoutMs = 66;
+        static const int kReqProcTimeoutMs = 180;
 
         static const int kReqWaitTimeoutMs = 33;
         static const int kReqWaitTimesWarn = 90;   // 33ms * 90 ~= 3 sec
@@ -311,6 +313,7 @@ class ExternalCameraDeviceSession : public BnCameraDeviceSession, public OutputT
     const ExternalCameraConfig& mCfg;
     const common::V1_0::helper::CameraMetadata mCameraCharacteristics;
     const std::vector<SupportedV4L2Format> mSupportedFormats;
+    const std::vector<std::pair<int, SupportedV4L2Format>> mMesaSupportedFormats;
     const CroppingType mCroppingType;
     const std::string mCameraId;
 

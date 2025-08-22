@@ -34,6 +34,7 @@
 #include <aidl/android/hardware/graphics/common/Dataspace.h>
 #include <aidlcommonsupport/NativeHandle.h>
 #include <convert.h>
+#include <cutils/properties.h>
 #include <linux/videodev2.h>
 #include <sync/sync.h>
 #include <utils/Trace.h>
@@ -112,13 +113,16 @@ HandleImporter ExternalCameraDeviceSession::sHandleImporter;
 
 ExternalCameraDeviceSession::ExternalCameraDeviceSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback, const ExternalCameraConfig& cfg,
-        const std::vector<SupportedV4L2Format>& sortedFormats, const CroppingType& croppingType,
+        const std::vector<SupportedV4L2Format>& sortedFormats,
+        const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
+        const CroppingType& croppingType,
         const common::V1_0::helper::CameraMetadata& chars, const std::string& cameraId,
         unique_fd v4l2Fd)
     : mCallback(callback),
       mCfg(cfg),
       mCameraCharacteristics(chars),
       mSupportedFormats(sortedFormats),
+      mMesaSupportedFormats(sortedMesaFormats),
       mCroppingType(croppingType),
       mCameraId(cameraId),
       mV4l2Fd(std::move(v4l2Fd)),
@@ -131,7 +135,13 @@ Size ExternalCameraDeviceSession::getMaxThumbResolution() const {
 
 Size ExternalCameraDeviceSession::getMaxJpegResolution() const {
     Size ret{0, 0};
-    for (auto& fmt : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mMesaSupportedFormats) {
+            formatsOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+        }
+    }
+    for (auto & fmt : mUseMesa ? formatsOnlyForMesa : mSupportedFormats) {
         if (fmt.width * fmt.height > ret.width * ret.height) {
             ret = Size{fmt.width, fmt.height};
         }
@@ -143,6 +153,12 @@ bool ExternalCameraDeviceSession::initialize() {
     if (mV4l2Fd.get() < 0) {
         ALOGE("%s: invalid v4l2 device fd %d!", __FUNCTION__, mV4l2Fd.get());
         return true;
+    }
+
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.hardware.egl", value, "none");
+    if (!strcmp(value, "mesa")) {
+        mUseMesa = true;
     }
 
     struct v4l2_capability capability;
@@ -290,8 +306,13 @@ ScopedAStatus ExternalCameraDeviceSession::configureStreams(
     _aidl_return->clear();
     Mutex::Autolock _il(mInterfaceLock);
 
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
+    for (const auto& supportedFormat : mMesaSupportedFormats) {
+        formatsOnlyForMesa.push_back(supportedFormat.second);
+    }
+
     Status status =
-            isStreamCombinationSupported(in_requestedConfiguration, mSupportedFormats, mCfg);
+            isStreamCombinationSupported(in_requestedConfiguration, mUseMesa ? formatsOnlyForMesa : mSupportedFormats, mCfg);
     if (status != Status::OK) {
         return fromStatus(status);
     }
@@ -361,7 +382,13 @@ ScopedAStatus ExternalCameraDeviceSession::configureStreams(
 
     // Find the smallest format that matches the desired aspect ratio and is wide/high enough
     SupportedV4L2Format v4l2Fmt{.width = 0, .height = 0};
-    for (const auto& fmt : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsRawOnlyForMesa;
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mMesaSupportedFormats) {
+            formatsRawOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+        }
+    }
+    for (const auto& fmt : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
         uint32_t dim = (mCroppingType == VERTICAL) ? fmt.width : fmt.height;
         if (dim >= maxDim) {
             float aspectRatio = ASPECT_RATIO(fmt);
@@ -376,7 +403,7 @@ ScopedAStatus ExternalCameraDeviceSession::configureStreams(
 
     if (v4l2Fmt.width == 0) {
         // Cannot find exact good aspect ratio candidate, try to find a close one
-        for (const auto& fmt : mSupportedFormats) {
+        for (const auto& fmt : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
             uint32_t dim = (mCroppingType == VERTICAL) ? fmt.width : fmt.height;
             if (dim >= maxDim) {
                 float aspectRatio = ASPECT_RATIO(fmt);
@@ -960,7 +987,11 @@ status_t ExternalCameraDeviceSession::initDefaultRequests() {
 
     bool support30Fps = false;
     int32_t maxFps = std::numeric_limits<int32_t>::min();
-    for (const auto& supportedFormat : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsRawOnlyForMesa;
+    for (const auto& supportedFormat : mMesaSupportedFormats) {
+        formatsRawOnlyForMesa.push_back(mSupportedFormats[supportedFormat.first]);
+    }
+    for (const auto& supportedFormat : mUseMesa ? formatsRawOnlyForMesa : mSupportedFormats) {
         for (const auto& fr : supportedFormat.frameRates) {
             int32_t framerateInt = static_cast<int32_t>(fr.getFramesPerSecond());
             if (maxFps < framerateInt) {
@@ -1102,7 +1133,8 @@ int ExternalCameraDeviceSession::configureV4l2StreamLocked(const SupportedV4L2Fo
     if ((bufferSize == 0) || (bufferSize > expectedMaxBufferSize)) {
         ALOGE("%s: V4L2 buffer size: %u looks invalid. Expected maximum size: %u", __FUNCTION__,
               bufferSize, expectedMaxBufferSize);
-        return -EINVAL;
+        //return -EINVAL;
+        bufferSize = expectedMaxBufferSize;
     }
     mMaxV4L2BufferSize = bufferSize;
 
@@ -2789,35 +2821,61 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
         }
     }
 
+    std::shared_ptr<AllocatedFrame> tmpFrame;
     // TODO: in some special case maybe we can decode jpg directly to gralloc output?
     if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
         res = 0;
+        int8_t mirror = property_get_bool("persist.fde.mirror", true);
+        YCbCrLayout tmpFrameLayout;
+        YCbCrLayout& realFrameLayout = mirror ? tmpFrameLayout : mYu12FrameLayout;
+        if (mirror) {
+            tmpFrame = std::make_shared<AllocatedFrame>(mYu12Frame->mWidth, mYu12Frame->mHeight);
+            int ret = tmpFrame->allocate(&realFrameLayout);
+            if (ret != 0) {
+                ALOGE("%s: allocating YU12 frame failed!", __FUNCTION__);
+                return false;
+            }
+        }
         if (mCameraMuted) {
             res = libyuv::ConvertToI420(
                     mMuteTestPatternFrame.data(), mMuteTestPatternFrame.size(),
-                    static_cast<uint8_t*>(mYu12FrameLayout.y), mYu12FrameLayout.yStride,
-                    static_cast<uint8_t*>(mYu12FrameLayout.cb), mYu12FrameLayout.cStride,
-                    static_cast<uint8_t*>(mYu12FrameLayout.cr), mYu12FrameLayout.cStride, 0, 0,
+                    static_cast<uint8_t*>(realFrameLayout.y), realFrameLayout.yStride,
+                    static_cast<uint8_t*>(realFrameLayout.cb), realFrameLayout.cStride,
+                    static_cast<uint8_t*>(realFrameLayout.cr), realFrameLayout.cStride, 0, 0,
                     mYu12Frame->mWidth, mYu12Frame->mHeight, mYu12Frame->mWidth,
                     mYu12Frame->mHeight, libyuv::kRotate0, libyuv::FOURCC_RAW);
         } else {
             if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG) {
                 res = libyuv::MJPGToI420(
-                    inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
-                    mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
-                    mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
-                    mYu12FrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                    inData, inDataSize, static_cast<uint8_t*>(realFrameLayout.y),
+                    realFrameLayout.yStride, static_cast<uint8_t*>(realFrameLayout.cb),
+                    realFrameLayout.cStride, static_cast<uint8_t*>(realFrameLayout.cr),
+                    realFrameLayout.cStride, mYu12Frame->mWidth, mYu12Frame->mHeight,
                     mYu12Frame->mWidth, mYu12Frame->mHeight);
             } else {
                 res = libyuv::ConvertToI420(
-                    inData, inDataSize, static_cast<uint8_t*>(mYu12FrameLayout.y),
-                    mYu12FrameLayout.yStride, static_cast<uint8_t*>(mYu12FrameLayout.cb),
-                    mYu12FrameLayout.cStride, static_cast<uint8_t*>(mYu12FrameLayout.cr),
-                    mYu12FrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
+                    inData, inDataSize, static_cast<uint8_t*>(realFrameLayout.y),
+                    realFrameLayout.yStride, static_cast<uint8_t*>(realFrameLayout.cb),
+                    realFrameLayout.cStride, static_cast<uint8_t*>(realFrameLayout.cr),
+                    realFrameLayout.cStride, 0, 0, mYu12Frame->mWidth, mYu12Frame->mHeight,
                     mYu12Frame->mWidth, mYu12Frame->mHeight, libyuv::kRotate0, V4L2_PIX_FMT_YUYV);
             }
         }
+
+        if (mirror && (res == 0)) {
+            res = libyuv::I420Mirror(static_cast<uint8_t*>(realFrameLayout.y), realFrameLayout.yStride,
+                static_cast<uint8_t*>(realFrameLayout.cb), realFrameLayout.cStride,
+                static_cast<uint8_t*>(realFrameLayout.cr), realFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.y), realFrameLayout.yStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cb), realFrameLayout.cStride,
+                static_cast<uint8_t*>(mYu12FrameLayout.cr), realFrameLayout.cStride,
+                mYu12Frame->mWidth, mYu12Frame->mHeight);
+        }
+        if (mirror) {
+            tmpFrame.reset();
+        }
+
         ATRACE_END();
 
         if (res != 0) {

@@ -150,8 +150,8 @@ ndk::ScopedAStatus ExternalCameraDevice::open(
         return fromStatus(Status::INTERNAL_ERROR);
     }
 
-    session = createSession(in_callback, mCfg, mSupportedFormats, mCroppingType,
-                            mCameraCharacteristics, mCameraId, std::move(fd));
+    session = createSession(in_callback, mCfg, mSupportedFormats, mMesaSupportedFormats,
+                            mCroppingType, mCameraCharacteristics, mCameraId, std::move(fd));
     if (session == nullptr) {
         ALOGE("%s: camera device session allocation failed", __FUNCTION__);
         return fromStatus(Status::INTERNAL_ERROR);
@@ -186,11 +186,13 @@ ndk::ScopedAStatus ExternalCameraDevice::getTorchStrengthLevel(int32_t*) {
 
 std::shared_ptr<ExternalCameraDeviceSession> ExternalCameraDevice::createSession(
         const std::shared_ptr<ICameraDeviceCallback>& cb, const ExternalCameraConfig& cfg,
-        const std::vector<SupportedV4L2Format>& sortedFormats, const CroppingType& croppingType,
+        const std::vector<SupportedV4L2Format>& sortedFormats,
+        const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
+        const CroppingType& croppingType,
         const common::V1_0::helper::CameraMetadata& chars, const std::string& cameraId,
         unique_fd v4l2Fd) {
     return ndk::SharedRefBase::make<ExternalCameraDeviceSession>(
-            cb, cfg, sortedFormats, croppingType, chars, cameraId, std::move(v4l2Fd));
+            cb, cfg, sortedFormats, sortedMesaFormats, croppingType, chars, cameraId, std::move(v4l2Fd));
 }
 
 bool ExternalCameraDevice::isInitFailed() {
@@ -270,6 +272,12 @@ status_t ExternalCameraDevice::initCameraCharacteristics() {
     if (!mCameraCharacteristics.isEmpty()) {
         // Camera Characteristics previously initialized. Skip.
         return OK;
+    }
+
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.hardware.egl", value, "none");
+    if (!strcmp(value, "mesa")) {
+        mUseMesa = true;
     }
 
     // init camera characteristics
@@ -686,7 +694,13 @@ status_t ExternalCameraDevice::initOutputCharsKeys(
     }
 
     SupportedV4L2Format maximumFormat{.width = 0, .height = 0};
-    for (const auto& supportedFormat : mSupportedFormats) {
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mMesaSupportedFormats) {
+            formatsOnlyForMesa.push_back(supportedFormat.second);
+        }
+    }
+    for (const auto& supportedFormat : mUseMesa ? formatsOnlyForMesa : mSupportedFormats) {
         if (supportedFormat.width >= maximumFormat.width &&
             supportedFormat.height >= maximumFormat.height) {
             maximumFormat = supportedFormat;
@@ -721,8 +735,52 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
     std::vector<std::string> wantedResolutions = {
         "320x240", "640x480", "1280x720", "1920x1080"
     };
+    std::vector<std::string> wantedMesaResolutions = {
+        "512x", "1024x"
+    };
+    int pos = -1;
+    int nearest512Pos = -1;
+    int nearest1024Pos = -1;
+    int min512 = std::numeric_limits<int>::max();
+    int min1024 = std::numeric_limits<int>::max();
+    std::vector<SupportedV4L2Format> formatsOnlyForMesa;
 
-    for (const auto& supportedFormat : mSupportedFormats) {
+    if (mUseMesa) {
+        for (const auto& supportedFormat : mSupportedFormats) {
+            pos++;
+            if (supportedFormat.fourcc != fourcc) {
+                continue;
+            }
+            int absValue = std::abs((int)supportedFormat.width - 512);
+            if (min512 > absValue) {
+                min512 = absValue;
+                nearest512Pos = pos;
+            }
+            absValue = std::abs((int)supportedFormat.width - 1024);
+            if (min1024 > absValue) {
+                min1024 = absValue;
+                nearest1024Pos = pos;
+            }
+        }
+        SupportedV4L2Format tmpV4L2Format;
+        if (nearest512Pos != -1) {
+            tmpV4L2Format = mSupportedFormats[nearest512Pos];
+            tmpV4L2Format.width = nearest512Pos == nearest1024Pos ? (min512 < min1024 ? 512 : 1024) : 512;
+            tmpV4L2Format.height = static_cast<int>(std::ceil((double)(tmpV4L2Format.width)
+                * mSupportedFormats[nearest512Pos].height / mSupportedFormats[nearest512Pos].width));
+            mMesaSupportedFormats.push_back({nearest512Pos, tmpV4L2Format});
+            formatsOnlyForMesa.push_back(tmpV4L2Format);
+            if (nearest512Pos != nearest1024Pos) {
+                tmpV4L2Format = mSupportedFormats[nearest1024Pos];
+                tmpV4L2Format.width = 1024;
+                tmpV4L2Format.height = static_cast<int>(std::ceil((double)(tmpV4L2Format.width)
+                    * mSupportedFormats[nearest512Pos].height / mSupportedFormats[nearest512Pos].width));
+                mMesaSupportedFormats.push_back({nearest1024Pos, tmpV4L2Format});
+                formatsOnlyForMesa.push_back(tmpV4L2Format);
+            }
+        }
+    }
+    for (const auto& supportedFormat : (mUseMesa ? formatsOnlyForMesa : mSupportedFormats)) {
         if (supportedFormat.fourcc != fourcc) {
             // Skip 4CCs not meant for the halFormats
             continue;
@@ -732,9 +790,13 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
             streamConfigurations.push_back(supportedFormat.width);
             streamConfigurations.push_back(supportedFormat.height);
             streamConfigurations.push_back(streamConfigTag);
-            std::string wantedStr = std::to_string(supportedFormat.width) + "x" + std::to_string(supportedFormat.height);
-            if ((std::find(wantedResolutions.begin(), wantedResolutions.end(), wantedStr)
-                != wantedResolutions.end()) &&  (resolutions.find(wantedStr) == std::string::npos)) {
+            std::string wantedStr = std::to_string(supportedFormat.width) + "x" +
+                (mUseMesa ? "" : std::to_string(supportedFormat.height));
+            if ((mUseMesa ? (std::find(wantedMesaResolutions.begin(),
+                wantedMesaResolutions.end(), wantedStr) != wantedMesaResolutions.end()) :
+                (std::find(wantedResolutions.begin(), wantedResolutions.end(), wantedStr)
+                != wantedResolutions.end())) &&  (resolutions.find(wantedStr) == std::string::npos)) {
+                wantedStr += mUseMesa ? std::to_string(supportedFormat.height) : "";
                 resolutions = resolutions.empty() ? wantedStr : (resolutions + "," + wantedStr);
             }
         }

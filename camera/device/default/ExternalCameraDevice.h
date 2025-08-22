@@ -73,7 +73,9 @@ class ExternalCameraDevice : public BnCameraDevice {
   private:
     virtual std::shared_ptr<ExternalCameraDeviceSession> createSession(
             const std::shared_ptr<ICameraDeviceCallback>&, const ExternalCameraConfig& cfg,
-            const std::vector<SupportedV4L2Format>& sortedFormats, const CroppingType& croppingType,
+            const std::vector<SupportedV4L2Format>& sortedFormats,
+            const std::vector<std::pair<int, SupportedV4L2Format>>& sortedMesaFormats,
+            const CroppingType& croppingType,
             const common::V1_0::helper::CameraMetadata& chars, const std::string& cameraId,
             unique_fd v4l2Fd);
 
@@ -130,6 +132,7 @@ class ExternalCameraDevice : public BnCameraDevice {
     std::string mDevicePath;
     const ExternalCameraConfig& mCfg;
     std::vector<SupportedV4L2Format> mSupportedFormats;
+    std::vector<std::pair<int, SupportedV4L2Format>> mMesaSupportedFormats;
     CroppingType mCroppingType;
 
     std::weak_ptr<ExternalCameraDeviceSession> mSession =
@@ -180,6 +183,7 @@ class ExternalCameraDevice : public BnCameraDevice {
             ANDROID_STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES,
             ANDROID_STATISTICS_INFO_MAX_FACE_COUNT,
             ANDROID_SYNC_MAX_LATENCY};
+    bool mUseMesa = false;
 };
 
 }  // namespace implementation
