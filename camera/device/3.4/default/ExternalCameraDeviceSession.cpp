@@ -1484,7 +1484,7 @@ bool ExternalCameraDeviceSession::OutputThread::threadLoop() {
     if (req->frameIn->mFourcc == V4L2_PIX_FMT_MJPEG || req->frameIn->mFourcc == V4L2_PIX_FMT_YUYV) {
         ATRACE_BEGIN("MJPGtoI420");
         int res;
-        int8_t mirror = property_get_bool("persist.fde.mirror", true);
+        int8_t mirror = property_get_bool("persist.fde.mirror", false);//base to d3000m camera
         YCbCrLayout tmpFrameLayout;
         YCbCrLayout& realFrameLayout = mirror ? tmpFrameLayout : mYu12FrameLayout;
         if (mirror) {
