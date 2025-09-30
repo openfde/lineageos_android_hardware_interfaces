@@ -187,24 +187,30 @@ void ExternalCameraProvider::addExternalCamera(const char* devName) {
 }
 
 void ExternalCameraProvider::deviceAdded(const char* devName) {
-    {
-        base::unique_fd fd(::open(devName, O_RDWR));
-        if (fd.get() < 0) {
-            ALOGE("%s open v4l2 device %s failed:%s", __FUNCTION__, devName, strerror(errno));
-            return;
+    int fd;
+    int try_count = 100;
+    do {
+        fd = ::open(devName, O_RDWR);
+        if (fd < 0) {
+            usleep(10000);
         }
+    } while ((fd < 0) && try_count--);
+    if (fd < 0) {
+        ALOGE("%s open v4l2 device %s failed:%s", __FUNCTION__, devName, strerror(errno));
+        return;
+    }
 
-        struct v4l2_capability capability;
-        int ret = ioctl(fd.get(), VIDIOC_QUERYCAP, &capability);
-        if (ret < 0) {
-            ALOGE("%s v4l2 QUERYCAP %s failed", __FUNCTION__, devName);
-            return;
-        }
+    struct v4l2_capability capability;
+    int ret = ioctl(fd, VIDIOC_QUERYCAP, &capability);
+    ::close(fd);
+    if (ret < 0) {
+        ALOGE("%s v4l2 QUERYCAP %s failed", __FUNCTION__, devName);
+        return;
+    }
 
-        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
-            ALOGW("%s device %s does not support VIDEO_CAPTURE", __FUNCTION__, devName);
-            return;
-        }
+    if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
+        ALOGW("%s device %s does not support VIDEO_CAPTURE", __FUNCTION__, devName);
+        return;
     }
 
     // See if we can initialize ExternalCameraDevice correctly
