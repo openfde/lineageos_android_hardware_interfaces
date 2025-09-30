@@ -50,7 +50,7 @@ constexpr int OPEN_RETRY_SLEEP_US = 100000; // 100ms * MAX_RETRY = 0.5 seconds
 constexpr double MIN_FRAMERATE = 10;
 } // anonymous namespace
 
-const std::regex kDevicePathRE("/dev/video([0-9]+)");
+const std::regex kDevicePathRE("/dev/camera/video([0-9]+)");
 
 ExternalCameraDevice::ExternalCameraDevice(
         const std::string& devicePath, const ExternalCameraConfig& cfg) :

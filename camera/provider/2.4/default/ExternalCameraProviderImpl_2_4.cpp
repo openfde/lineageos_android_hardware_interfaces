@@ -41,7 +41,7 @@ namespace {
 // "device@<version>/external/<id>"
 const std::regex kDeviceNameRE("device@([0-9]+\\.[0-9]+)/external/(.+)");
 const int kMaxDevicePathLen = 256;
-const char* kDevicePath = "/dev/";
+const char* kDevicePath = "/dev/camera/";
 constexpr char kPrefix[] = "video";
 constexpr int kPrefixLen = sizeof(kPrefix) - 1;
 constexpr int kDevicePrefixLen = sizeof(kDevicePath) + kPrefixLen + 1;
@@ -56,7 +56,7 @@ bool matchDeviceName(int cameraIdOffset,
             *deviceVersion = sm[1];
         }
         if (cameraDevicePath != nullptr) {
-            *cameraDevicePath = "/dev/video" + std::to_string(std::stoi(sm[2]) - cameraIdOffset);
+            *cameraDevicePath = "/dev/camera/video" + std::to_string(std::stoi(sm[2]) - cameraIdOffset);
         }
         return true;
     }
@@ -229,25 +229,32 @@ void ExternalCameraProviderImpl_2_4::addExternalCamera(const char* devName) {
 }
 
 void ExternalCameraProviderImpl_2_4::deviceAdded(const char* devName) {
-    {
-        base::unique_fd fd(::open(devName, O_RDWR));
-        if (fd.get() < 0) {
-            ALOGE("%s open v4l2 device %s failed:%s", __FUNCTION__, devName, strerror(errno));
-            return;
+    int fd;
+    int try_count = 100;
+    do {
+        fd = ::open(devName, O_RDWR);
+        if (fd < 0) {
+            usleep(10000);
         }
-
-        struct v4l2_capability capability;
-        int ret = ioctl(fd.get(), VIDIOC_QUERYCAP, &capability);
-        if (ret < 0) {
-            ALOGE("%s v4l2 QUERYCAP %s failed", __FUNCTION__, devName);
-            return;
-        }
-
-        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
-            ALOGW("%s device %s does not support VIDEO_CAPTURE", __FUNCTION__, devName);
-            return;
-        }
+    } while ((fd < 0) && try_count--);
+    if (fd < 0) {
+        ALOGE("%s open v4l2 device %s failed:%s", __FUNCTION__, devName, strerror(errno));
+        return;
     }
+
+    struct v4l2_capability capability;
+    int ret = ioctl(fd, VIDIOC_QUERYCAP, &capability);
+    ::close(fd);
+    if (ret < 0) {
+        ALOGE("%s v4l2 QUERYCAP %s failed", __FUNCTION__, devName);
+        return;
+    }
+
+    if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
+        ALOGW("%s device %s does not support VIDEO_CAPTURE", __FUNCTION__, devName);
+        return;
+    }
+
     // See if we can initialize ExternalCameraDevice correctly
     sp<device::V3_4::implementation::ExternalCameraDevice> deviceImpl =
             new device::V3_4::implementation::ExternalCameraDevice(devName, mCfg);
