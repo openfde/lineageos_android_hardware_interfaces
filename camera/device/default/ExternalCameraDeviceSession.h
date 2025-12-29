@@ -125,6 +125,7 @@ class ExternalCameraDeviceSession : public BnCameraDeviceSession, public OutputT
     static const int kMaxStallStream = 1;
     static const uint32_t kMaxBytesPerPixel = 2;
     bool mUseMesa = false;
+    bool mUseFtg340 = false;
 
     class BufferRequestThread : public SimpleThread {
       public:
