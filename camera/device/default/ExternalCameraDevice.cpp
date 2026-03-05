@@ -54,8 +54,8 @@ const std::regex kDevicePathRE("/dev/block/video([0-9]+)");
 std::string ExternalCameraDevice::kDeviceVersion = "1.1";
 
 ExternalCameraDevice::ExternalCameraDevice(const std::string& devicePath,
-                                           const ExternalCameraConfig& config)
-    : mCameraId("-1"), mDevicePath(devicePath), mCfg(config) {
+                                           const ExternalCameraConfig& config, bool isShadow)
+    : mCameraId("-1"), mDevicePath(devicePath), mCfg(config), mIsShadow(isShadow) {
     std::smatch sm;
     if (std::regex_match(mDevicePath, sm, kDevicePathRE)) {
         mCameraId = std::to_string(mCfg.cameraIdOffset + std::stoi(sm[1]));
@@ -432,7 +432,7 @@ status_t ExternalCameraDevice::initDefaultCharsKeys(
     const uint8_t opticalStabilizationMode = ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
     UPDATE(ANDROID_LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION, &opticalStabilizationMode, 1);
 
-    const uint8_t facing = ANDROID_LENS_FACING_BACK;
+    const uint8_t facing = mIsShadow ? ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     UPDATE(ANDROID_LENS_FACING, &facing, 1);
 
     // android.noiseReduction
