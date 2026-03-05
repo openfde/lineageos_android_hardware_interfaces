@@ -88,6 +88,23 @@ class MapperImpl : public Interface {
         return freeImportedBuffer(bufferHandle);
     }
 
+    Return<void> needCovertFormat(void* buffer,
+                              IMapper::needCovertFormat_cb hidl_cb) override {
+        native_handle_t* bufferHandle = getImportedBuffer(buffer);
+        if (!bufferHandle) {
+            hidl_cb(Error::BAD_BUFFER, 0);
+            return Void();
+        }
+        uint32_t result = 0;
+        Error error = mHal->needCovertFormat(bufferHandle, &result);
+        if (error != Error::NONE) {
+            hidl_cb(error, 0);
+            return Void();
+        }
+        hidl_cb(Error::NONE, result);
+        return Void();
+    }
+
     Return<void> lock(void* buffer, uint64_t cpuUsage, const V2_0::IMapper::Rect& accessRegion,
                       const hidl_handle& acquireFence, IMapper::lock_cb hidl_cb) override {
         const native_handle_t* bufferHandle = getConstImportedBuffer(buffer);
