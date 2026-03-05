@@ -103,7 +103,7 @@ class ExternalCameraProvider : public BnCameraProvider {
 
     Mutex mLock;
     std::shared_ptr<ICameraProviderCallback> mCallback = nullptr;
-    std::unordered_map<std::string, CameraDeviceStatus> mCameraStatusMap;  // camera id -> status
+    std::unordered_map<std::string, std::pair<std::string, CameraDeviceStatus>> mCameraStatusMap;  // camera id -> status
     const ExternalCameraConfig mCfg;
     std::shared_ptr<HotplugThread> mHotPlugThread;
 };

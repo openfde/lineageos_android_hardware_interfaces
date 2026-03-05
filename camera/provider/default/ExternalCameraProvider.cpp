@@ -47,6 +47,7 @@ constexpr char kDevicePath[] = "/dev/block/";
 constexpr char kPrefix[] = "video";
 constexpr int kPrefixLen = sizeof(kPrefix) - 1;
 constexpr int kDevicePrefixLen = sizeof(kDevicePath) + kPrefixLen - 1;
+constexpr int kMaxCameraId = 7;
 
 bool matchDeviceName(int cameraIdOffset, const std::string& deviceName, std::string* deviceVersion,
                      std::string* cameraDevicePath) {
@@ -85,7 +86,7 @@ ndk::ScopedAStatus ExternalCameraProvider::setCallback(
     }
 
     for (const auto& pair : mCameraStatusMap) {
-        mCallback->cameraDeviceStatusChange(pair.first, pair.second);
+        mCallback->cameraDeviceStatusChange(pair.first, pair.second.second);
     }
     return fromStatus(Status::OK);
 }
@@ -125,14 +126,22 @@ ndk::ScopedAStatus ExternalCameraProvider::getCameraDeviceInterface(
     }
 
     if (mCameraStatusMap.count(in_cameraDeviceName) == 0 ||
-        mCameraStatusMap[in_cameraDeviceName] != CameraDeviceStatus::PRESENT) {
+        mCameraStatusMap[in_cameraDeviceName].second != CameraDeviceStatus::PRESENT) {
         *_aidl_return = nullptr;
         return fromStatus(Status::ILLEGAL_ARGUMENT);
     }
 
     ALOGV("Constructing external camera device");
+    bool isShadow = false;
+    size_t pos = in_cameraDeviceName.find_last_of('/');
+    if (pos != std::string::npos) {
+        int cameraId = std::stoi(in_cameraDeviceName.substr(pos + 1));
+        if (cameraId % 2 != 0) {
+            isShadow = true;
+        }
+    }
     std::shared_ptr<ExternalCameraDevice> deviceImpl =
-            ndk::SharedRefBase::make<ExternalCameraDevice>(cameraDevicePath, mCfg);
+            ndk::SharedRefBase::make<ExternalCameraDevice>(mCameraStatusMap[in_cameraDeviceName].first, mCfg, isShadow);
     if (deviceImpl == nullptr || deviceImpl->isInitFailed()) {
         ALOGE("%s: camera device %s init failed!", __FUNCTION__, cameraDevicePath.c_str());
         *_aidl_return = nullptr;
@@ -175,14 +184,22 @@ ndk::ScopedAStatus ExternalCameraProvider::isConcurrentStreamCombinationSupporte
 void ExternalCameraProvider::addExternalCamera(const char* devName) {
     ALOGV("%s: ExtCam: adding %s to External Camera HAL!", __FUNCTION__, devName);
     Mutex::Autolock _l(mLock);
-    std::string deviceName;
-    std::string cameraId =
-            std::to_string(mCfg.cameraIdOffset + std::atoi(devName + kDevicePrefixLen));
-    deviceName =
-            std::string("device@") + ExternalCameraDevice::kDeviceVersion + "/external/" + cameraId;
-    mCameraStatusMap[deviceName] = CameraDeviceStatus::PRESENT;
+    std::string deviceNamePrefix = std::string("device@") + ExternalCameraDevice::kDeviceVersion + "/external/";
+    int cameraId = mCameraStatusMap.size();
+    if (mCameraStatusMap.count(deviceNamePrefix + std::to_string(cameraId))
+        || (mCameraStatusMap.count(deviceNamePrefix + "0") == 0)) {
+        for (int i = 0; i <= kMaxCameraId; i++) {
+            if (mCameraStatusMap.count(deviceNamePrefix + std::to_string(i)) == 0) {
+                cameraId = i;
+                break;
+            }
+        }
+    }
+    mCameraStatusMap[deviceNamePrefix + std::to_string(cameraId)] = {devName, CameraDeviceStatus::PRESENT};
+    mCameraStatusMap[deviceNamePrefix + std::to_string(cameraId + 1)] = {devName, CameraDeviceStatus::PRESENT};
     if (mCallback != nullptr) {
-        mCallback->cameraDeviceStatusChange(deviceName, CameraDeviceStatus::PRESENT);
+        mCallback->cameraDeviceStatusChange(deviceNamePrefix + std::to_string(cameraId), CameraDeviceStatus::PRESENT);
+        mCallback->cameraDeviceStatusChange(deviceNamePrefix + std::to_string(cameraId + 1), CameraDeviceStatus::PRESENT);
     }
 }
 
@@ -215,7 +232,7 @@ void ExternalCameraProvider::deviceAdded(const char* devName) {
 
     // See if we can initialize ExternalCameraDevice correctly
     std::shared_ptr<ExternalCameraDevice> deviceImpl =
-            ndk::SharedRefBase::make<ExternalCameraDevice>(devName, mCfg);
+            ndk::SharedRefBase::make<ExternalCameraDevice>(devName, mCfg, false);
     if (deviceImpl == nullptr || deviceImpl->isInitFailed()) {
         ALOGW("%s: Attempt to init camera device %s failed!", __FUNCTION__, devName);
         return;
@@ -226,21 +243,20 @@ void ExternalCameraProvider::deviceAdded(const char* devName) {
 
 void ExternalCameraProvider::deviceRemoved(const char* devName) {
     Mutex::Autolock _l(mLock);
-    std::string deviceName;
-    std::string cameraId =
-            std::to_string(mCfg.cameraIdOffset + std::atoi(devName + kDevicePrefixLen));
-
-    deviceName =
-            std::string("device@") + ExternalCameraDevice::kDeviceVersion + "/external/" + cameraId;
-
-    if (mCameraStatusMap.erase(deviceName) == 0) {
-        // Unknown device, do not fire callback
-        ALOGE("%s: cannot find camera device to remove %s", __FUNCTION__, devName);
-        return;
+    int i = 0;
+    std::vector<std::string> toRemovedDevs;
+    for (const auto& pair : mCameraStatusMap) {
+        if (pair.second.first.compare(devName) == 0) {
+            toRemovedDevs.push_back(pair.first);
+        }
+        i++;
     }
 
-    if (mCallback != nullptr) {
-        mCallback->cameraDeviceStatusChange(deviceName, CameraDeviceStatus::NOT_PRESENT);
+    for (const auto& dev : toRemovedDevs) {
+        mCameraStatusMap.erase(dev);
+        if (mCallback != nullptr) {
+            mCallback->cameraDeviceStatusChange(dev, CameraDeviceStatus::NOT_PRESENT);
+        }
     }
 }
 
@@ -268,6 +284,11 @@ void ExternalCameraProvider::updateAttachedCameras() {
         }
     }
     closedir(devdir);
+    char fps[PROPERTY_VALUE_MAX];
+    property_get("fde.camera.fps", fps, "nonenone");
+    if (strcmp(fps, "nonenone") == 0) {
+        property_set("fde.camera.fps", "none");
+    }
 }
 
 // Start ExternalCameraProvider::HotplugThread functions
