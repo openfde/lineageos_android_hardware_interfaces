@@ -179,7 +179,7 @@ void HealthLoop::WakeAlarmEvent(uint32_t /*epevents*/) {
 }
 
 void HealthLoop::WakeAlarmInit(void) {
-    wakealarm_fd_.reset(timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK));
+    wakealarm_fd_.reset(timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK));
     if (wakealarm_fd_ == -1) {
         KLOG_ERROR(LOG_TAG, "wakealarm_init: timerfd_create failed\n");
         return;
