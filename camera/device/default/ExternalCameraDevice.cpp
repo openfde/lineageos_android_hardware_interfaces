@@ -54,8 +54,8 @@ const std::regex kDevicePathRE("/dev/block/video([0-9]+)");
 std::string ExternalCameraDevice::kDeviceVersion = "1.1";
 
 ExternalCameraDevice::ExternalCameraDevice(const std::string& devicePath,
-                                           const ExternalCameraConfig& config, bool isShadow)
-    : mCameraId("-1"), mDevicePath(devicePath), mCfg(config), mIsShadow(isShadow) {
+                                           const ExternalCameraConfig& config, bool isShadow, int id)
+    : mCameraId("-1"), mDevicePath(devicePath), mCfg(config), mIsShadow(isShadow), mId(id) {
     std::smatch sm;
     if (std::regex_match(mDevicePath, sm, kDevicePathRE)) {
         mCameraId = std::to_string(mCfg.cameraIdOffset + std::stoi(sm[1]));
@@ -780,6 +780,7 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
             }
         }
     }
+    bool needSetProp = !mIsShadow && (mId >= 0);
     for (const auto& supportedFormat : (mUseMesa ? formatsOnlyForMesa : mSupportedFormats)) {
         if (supportedFormat.fourcc != fourcc) {
             // Skip 4CCs not meant for the halFormats
@@ -790,14 +791,23 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
             streamConfigurations.push_back(supportedFormat.width);
             streamConfigurations.push_back(supportedFormat.height);
             streamConfigurations.push_back(streamConfigTag);
-            std::string wantedStr = std::to_string(supportedFormat.width) + "x" +
-                (mUseMesa ? "" : std::to_string(supportedFormat.height));
-            if ((mUseMesa ? (std::find(wantedMesaResolutions.begin(),
-                wantedMesaResolutions.end(), wantedStr) != wantedMesaResolutions.end()) :
-                (std::find(wantedResolutions.begin(), wantedResolutions.end(), wantedStr)
-                != wantedResolutions.end())) &&  (resolutions.find(wantedStr) == std::string::npos)) {
-                wantedStr += mUseMesa ? std::to_string(supportedFormat.height) : "";
-                resolutions = resolutions.empty() ? wantedStr : (resolutions + "," + wantedStr);
+            if (needSetProp) {
+                std::string wantedStr = std::to_string(supportedFormat.width) + "x" +
+                    (mUseMesa ? "" : std::to_string(supportedFormat.height));
+                if ((mUseMesa ? (std::find(wantedMesaResolutions.begin(),
+                    wantedMesaResolutions.end(), wantedStr) != wantedMesaResolutions.end()) :
+                    (std::find(wantedResolutions.begin(), wantedResolutions.end(), wantedStr)
+                    != wantedResolutions.end())) &&  (resolutions.find(wantedStr) == std::string::npos)) {
+                    int32_t maxFps = std::numeric_limits<int32_t>::min();
+                    for (const auto& fr : supportedFormat.frameRates) {
+                        int32_t frameRateInt = static_cast<int32_t>(fr.getFramesPerSecond());
+                        if (maxFps < frameRateInt) {
+                            maxFps = frameRateInt;
+                        }
+                    }
+                    wantedStr += (mUseMesa ? std::to_string(supportedFormat.height) : "") + "@" + std::to_string(maxFps);
+                    resolutions = resolutions.empty() ? wantedStr : (resolutions + "," + wantedStr);
+                }
             }
         }
 
@@ -830,9 +840,23 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
             stallDurations.push_back(stall_duration);
         }
     }
-
-    if (property_set("fde.camera.res", resolutions.empty() ? "none" : resolutions.c_str())) {
-        ALOGE("%s: property_set failed", __FUNCTION__);
+    if (!resolutions.empty() && needSetProp ) {
+        std::string addId;
+        addId = addId + "d" + std::to_string(mId) + "@" + resolutions;
+        char cameraInfo[PROPERTY_VALUE_MAX];
+        property_get("fde.camera.info", cameraInfo, "none");
+        std::string rawStr(cameraInfo);
+        if (rawStr.find("none") != std::string::npos) {
+            if (property_set("fde.camera.info",  addId.c_str())) {
+                ALOGE("%s: property_set failed", __FUNCTION__);
+            }
+        } else {
+            if (rawStr.find(addId) == std::string::npos) {
+                if (property_set("fde.camera.info", (rawStr + ";" + addId).c_str())) {
+                    ALOGE("%s: property_set failed", __FUNCTION__);
+                }
+            }
+        }
     }
 
     UPDATE(streamConfigurationKey, streamConfigurations.data(), streamConfigurations.size());
@@ -860,25 +884,11 @@ status_t ExternalCameraDevice::calculateMinFps(
     }
 
     std::vector<int32_t> fpsRanges;
-    std::vector<int32_t> fpsEs;
     // FPS ranges
     for (const auto& framerate : framerates) {
         // Empirical: webcams often have close to 2x fps error and cannot support fixed fps range
         fpsRanges.push_back(framerate / 2);
         fpsRanges.push_back(framerate);
-        fpsEs.push_back(framerate);
-    }
-
-    std::ostringstream oss;
-    for (size_t i = 0; i < fpsEs.size(); ++i) {
-        if (i != 0) {
-            oss << ",";
-        }
-        oss << fpsEs[i];
-    }
-    std::string fpsEsStr = oss.str();
-    if (property_set("fde.camera.fps", fpsEsStr.empty() ? "none" : fpsEsStr.c_str())) {
-        ALOGE("%s: property_set failed", __FUNCTION__);
     }
 
     minFps /= 2;
