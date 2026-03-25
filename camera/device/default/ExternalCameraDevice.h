@@ -43,7 +43,7 @@ class ExternalCameraDevice : public BnCameraDevice {
     // be multiple CameraDevice trying to access the same physical camera.  Also, provider will have
     // to keep track of all CameraDevice objects in order to notify CameraDevice when the underlying
     // camera is detached.
-    ExternalCameraDevice(const std::string& devicePath, const ExternalCameraConfig& config, bool isShadow);
+    ExternalCameraDevice(const std::string& devicePath, const ExternalCameraConfig& config, bool isShadow, int id);
     ~ExternalCameraDevice() override;
 
     ndk::ScopedAStatus getCameraCharacteristics(CameraMetadata* _aidl_return) override;
@@ -135,6 +135,7 @@ class ExternalCameraDevice : public BnCameraDevice {
     std::vector<std::pair<int, SupportedV4L2Format>> mMesaSupportedFormats;
     CroppingType mCroppingType;
     bool mIsShadow = false;
+    int mId = 0;
 
     std::weak_ptr<ExternalCameraDeviceSession> mSession =
             std::weak_ptr<ExternalCameraDeviceSession>();

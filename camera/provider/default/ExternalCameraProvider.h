@@ -72,6 +72,7 @@ class ExternalCameraProvider : public BnCameraProvider {
     void deviceAdded(const char* devName);
     void deviceRemoved(const char* devName);
     void updateAttachedCameras();
+    int getCameraId();
 
     // A separate thread to monitor '/dev' directory for '/dev/video*' entries
     // This thread calls back into ExternalCameraProvider when an actionable change is detected.

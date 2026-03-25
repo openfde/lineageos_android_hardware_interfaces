@@ -43,6 +43,8 @@
 #define HAVE_JPEG  // required for libyuv.h to export MJPEG decode APIs
 #include <libyuv.h>
 #include <libyuv/convert.h>
+#include <sys/time.h>
+#include <signal.h>
 
 namespace android {
 namespace hardware {
@@ -88,6 +90,10 @@ bool tryLock(std::mutex& mutex) {
         usleep(kDumpLockSleep);
     }
     return locked;
+}
+
+static void timerHandler(int sig) {
+    (void)sig;
 }
 
 }  // anonymous namespace
@@ -1271,10 +1277,26 @@ std::unique_ptr<V4L2Frame> ExternalCameraDeviceSession::dequeueV4l2FrameLocked(n
     v4l2_buffer buffer{};
     buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buffer.memory = V4L2_MEMORY_MMAP;
+
+    struct itimerval timer;
+    timer.it_value.tv_sec = 1;
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+
+    signal(SIGALRM, timerHandler);
+    setitimer(ITIMER_REAL, &timer, nullptr);
+
     if (TEMP_FAILURE_RETRY(ioctl(mV4l2Fd.get(), VIDIOC_DQBUF, &buffer)) < 0) {
+        timer.it_value.tv_sec = 0;
+        setitimer(ITIMER_REAL, &timer, nullptr);
         ALOGE("%s: DQBUF fails: %s", __FUNCTION__, strerror(errno));
         return ret;
     }
+
+    timer.it_value.tv_sec = 0;
+    setitimer(ITIMER_REAL, &timer, nullptr);
+
     ATRACE_END();
 
     if (buffer.index >= mV4L2BufferCount) {
