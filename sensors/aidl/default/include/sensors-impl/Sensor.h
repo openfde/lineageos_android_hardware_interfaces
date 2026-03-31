@@ -96,6 +96,9 @@ class AccelSensor : public Sensor {
 
   protected:
     virtual void readEventPayload(EventPayload& payload) override;
+
+  private:
+    void generateMinimalData(float& x, float& y, float& z);
 };
 
 class GyroSensor : public Sensor {
