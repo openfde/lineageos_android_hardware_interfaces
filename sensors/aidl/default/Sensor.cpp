@@ -255,7 +255,7 @@ PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* call
     mSensorInfo.type = SensorType::PRESSURE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1100.0f;       // hPa
-    mSensorInfo.resolution = 0.005f;      // hPa
+    mSensorInfo.resolution = 0.01f;      // hPa
     mSensorInfo.power = 0.001f;           // mA
     mSensorInfo.minDelayUs = 100 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -263,10 +263,13 @@ PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* call
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = 0;
-};
+}
 
 void PressureSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(1013.25f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.05f, 0.05f);
+    payload.set<EventPayload::Tag::scalar>(990.0f + dis(gen));
 }
 
 MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
