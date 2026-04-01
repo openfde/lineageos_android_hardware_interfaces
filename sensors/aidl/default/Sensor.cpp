@@ -409,7 +409,7 @@ AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback
     mSensorInfo.type = SensorType::AMBIENT_TEMPERATURE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 80.0f;
-    mSensorInfo.resolution = 0.01f;
+    mSensorInfo.resolution = 0.1f;
     mSensorInfo.power = 0.001f;
     mSensorInfo.minDelayUs = 40 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -420,7 +420,11 @@ AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback
 };
 
 void AmbientTempSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(40.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.5f, 0.5f);
+
+    payload.set<EventPayload::Tag::scalar>(24.0f + dis(gen));
 }
 
 RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
