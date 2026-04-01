@@ -322,7 +322,7 @@ LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
     mSensorInfo.type = SensorType::LIGHT;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 43000.0f;
-    mSensorInfo.resolution = 10.0f;
+    mSensorInfo.resolution = 1.0f;
     mSensorInfo.power = 0.001f;           // mA
     mSensorInfo.minDelayUs = 200 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -333,7 +333,11 @@ LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
 };
 
 void LightSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(80.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(-5, 5);
+
+    payload.set<EventPayload::Tag::scalar>(416.0f + dis(gen));
 }
 
 ProximitySensor::ProximitySensor(int32_t sensorHandle, ISensorsEventCallback* callback)
@@ -357,7 +361,11 @@ ProximitySensor::ProximitySensor(int32_t sensorHandle, ISensorsEventCallback* ca
 };
 
 void ProximitySensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(2.5f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(0, 1);
+
+    payload.set<EventPayload::Tag::scalar>(4.0f + dis(gen));
 }
 
 GyroSensor::GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
