@@ -349,28 +349,40 @@ GyroSensor::GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : 
     mSensorInfo.sensorHandle = sensorHandle;
     mSensorInfo.name = "Gyro Sensor";
     mSensorInfo.vendor = "Vendor String";
-    mSensorInfo.version = 1;
+    mSensorInfo.version = 260401;
     mSensorInfo.type = SensorType::GYROSCOPE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1000.0f * M_PI / 180.0f;
     mSensorInfo.resolution = 1000.0f * M_PI / (180.0f * 32768.0f);
-    mSensorInfo.power = 0.001f;
+    mSensorInfo.power = 3.0f;
     mSensorInfo.minDelayUs = 10 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
-};
+}
 
 void GyroSensor::readEventPayload(EventPayload& payload) {
-    EventPayload::Vec3 vec3 = {
-            .x = 0,
-            .y = 0,
-            .z = 0,
-            .status = SensorStatus::ACCURACY_HIGH,
-    };
+    float x, y, z;
+    generateMinimalData(x, y, z);
+
+    EventPayload::Vec3 vec3;
+    vec3.x = x;
+    vec3.y = y;
+    vec3.z = z;
+    vec3.status = SensorStatus::ACCURACY_HIGH;
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+void GyroSensor::generateMinimalData(float& x, float& y, float& z) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.00053f, 0.00053f);
+
+    x = dis(gen);
+    y = dis(gen);
+    z = dis(gen);
 }
 
 AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
