@@ -278,24 +278,36 @@ MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallba
     mSensorInfo.type = SensorType::MAGNETIC_FIELD;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1300.0f;
-    mSensorInfo.resolution = 0.01f;
-    mSensorInfo.power = 0.001f;          // mA
+    mSensorInfo.resolution = 0.2f;
+    mSensorInfo.power = 0.05f;          // mA
     mSensorInfo.minDelayUs = 20 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
-};
+}
 
 void MagnetometerSensor::readEventPayload(EventPayload& payload) {
-    EventPayload::Vec3 vec3 = {
-            .x = 100.0,
-            .y = 0,
-            .z = 50.0,
-            .status = SensorStatus::ACCURACY_HIGH,
-    };
+    float x, y, z;
+    generateMinimalData(x, y, z);
+
+    EventPayload::Vec3 vec3;
+    vec3.x = -22.0 + x;
+    vec3.y = -67.0 + y;
+    vec3.z = -60.0 + z;
+    vec3.status = SensorStatus::ACCURACY_HIGH;
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+void MagnetometerSensor::generateMinimalData(float& x, float& y, float& z) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-2.0f, 2.0f);
+
+    x = dis(gen);
+    y = dis(gen);
+    z = dis(gen);
 }
 
 LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
