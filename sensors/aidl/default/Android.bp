@@ -46,7 +46,7 @@ cc_library_static {
 }
 
 cc_binary {
-    name: "android.hardware.sensors-service.example",
+    name: "android.hardware.sensors-service",
     relative_install_path: "hw",
     installable: false, // install APEX below
 
@@ -94,7 +94,7 @@ apex {
     updatable: false,
     vendor: true,
 
-    binaries: ["android.hardware.sensors-service.example"],
+    binaries: ["android.hardware.sensors-service"],
     prebuilts: [
         "sensors-default.rc", // init rc
         "sensors-default.xml", // vintf fragment

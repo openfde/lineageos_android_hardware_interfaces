@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "SensorAidlHal"
+//#define LOG_NDEBUG 0
+
 #include "sensors-impl/Sensor.h"
 
 #include "utils/SystemClock.h"
 
 #include <cmath>
+#include <log/log.h>
+#include <random>
 
 using ::ndk::ScopedAStatus;
 
@@ -217,16 +222,28 @@ AccelSensor::AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback) 
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
-};
+}
 
 void AccelSensor::readEventPayload(EventPayload& payload) {
-    EventPayload::Vec3 vec3 = {
-            .x = 0,
-            .y = 0,
-            .z = 9.8,
-            .status = SensorStatus::ACCURACY_HIGH,
-    };
+    float x, y, z;
+    generateMinimalData(x, y, z);
+
+    EventPayload::Vec3 vec3;
+    vec3.x = x;
+    vec3.y = y;
+    vec3.z = z;
+    vec3.status = SensorStatus::ACCURACY_HIGH;
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+void AccelSensor::generateMinimalData(float& x, float& y, float& z) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.1f, 0.1f);
+
+    x = dis(gen);
+    y = dis(gen);
+    z = 9.8f + dis(gen);
 }
 
 PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
