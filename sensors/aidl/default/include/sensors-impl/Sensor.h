@@ -107,6 +107,9 @@ class GyroSensor : public Sensor {
 
   protected:
     virtual void readEventPayload(EventPayload& payload) override;
+
+  private:
+    void generateMinimalData(float& x, float& y, float& z);
 };
 
 class AmbientTempSensor : public OnChangeSensor {
@@ -131,6 +134,9 @@ class MagnetometerSensor : public Sensor {
 
   protected:
     virtual void readEventPayload(EventPayload& payload) override;
+
+  private:
+    void generateMinimalData(float& x, float& y, float& z);
 };
 
 class LightSensor : public OnChangeSensor {

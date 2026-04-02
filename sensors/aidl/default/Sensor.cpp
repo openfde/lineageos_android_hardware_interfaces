@@ -255,7 +255,7 @@ PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* call
     mSensorInfo.type = SensorType::PRESSURE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1100.0f;       // hPa
-    mSensorInfo.resolution = 0.005f;      // hPa
+    mSensorInfo.resolution = 0.01f;      // hPa
     mSensorInfo.power = 0.001f;           // mA
     mSensorInfo.minDelayUs = 100 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -263,10 +263,13 @@ PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* call
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = 0;
-};
+}
 
 void PressureSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(1013.25f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.05f, 0.05f);
+    payload.set<EventPayload::Tag::scalar>(990.0f + dis(gen));
 }
 
 MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
@@ -278,24 +281,36 @@ MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallba
     mSensorInfo.type = SensorType::MAGNETIC_FIELD;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1300.0f;
-    mSensorInfo.resolution = 0.01f;
-    mSensorInfo.power = 0.001f;          // mA
+    mSensorInfo.resolution = 0.2f;
+    mSensorInfo.power = 0.05f;          // mA
     mSensorInfo.minDelayUs = 20 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
-};
+}
 
 void MagnetometerSensor::readEventPayload(EventPayload& payload) {
-    EventPayload::Vec3 vec3 = {
-            .x = 100.0,
-            .y = 0,
-            .z = 50.0,
-            .status = SensorStatus::ACCURACY_HIGH,
-    };
+    float x, y, z;
+    generateMinimalData(x, y, z);
+
+    EventPayload::Vec3 vec3;
+    vec3.x = -22.0 + x;
+    vec3.y = -67.0 + y;
+    vec3.z = -60.0 + z;
+    vec3.status = SensorStatus::ACCURACY_HIGH;
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+void MagnetometerSensor::generateMinimalData(float& x, float& y, float& z) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-2.0f, 2.0f);
+
+    x = dis(gen);
+    y = dis(gen);
+    z = dis(gen);
 }
 
 LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
@@ -307,7 +322,7 @@ LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
     mSensorInfo.type = SensorType::LIGHT;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 43000.0f;
-    mSensorInfo.resolution = 10.0f;
+    mSensorInfo.resolution = 1.0f;
     mSensorInfo.power = 0.001f;           // mA
     mSensorInfo.minDelayUs = 200 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -318,7 +333,11 @@ LightSensor::LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
 };
 
 void LightSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(80.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(-5, 5);
+
+    payload.set<EventPayload::Tag::scalar>(416.0f + dis(gen));
 }
 
 ProximitySensor::ProximitySensor(int32_t sensorHandle, ISensorsEventCallback* callback)
@@ -342,35 +361,51 @@ ProximitySensor::ProximitySensor(int32_t sensorHandle, ISensorsEventCallback* ca
 };
 
 void ProximitySensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(2.5f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(0, 1);
+
+    payload.set<EventPayload::Tag::scalar>(4.0f + dis(gen));
 }
 
 GyroSensor::GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
     mSensorInfo.sensorHandle = sensorHandle;
     mSensorInfo.name = "Gyro Sensor";
     mSensorInfo.vendor = "Vendor String";
-    mSensorInfo.version = 1;
+    mSensorInfo.version = 260401;
     mSensorInfo.type = SensorType::GYROSCOPE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 1000.0f * M_PI / 180.0f;
     mSensorInfo.resolution = 1000.0f * M_PI / (180.0f * 32768.0f);
-    mSensorInfo.power = 0.001f;
+    mSensorInfo.power = 3.0f;
     mSensorInfo.minDelayUs = 10 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
-};
+}
 
 void GyroSensor::readEventPayload(EventPayload& payload) {
-    EventPayload::Vec3 vec3 = {
-            .x = 0,
-            .y = 0,
-            .z = 0,
-            .status = SensorStatus::ACCURACY_HIGH,
-    };
+    float x, y, z;
+    generateMinimalData(x, y, z);
+
+    EventPayload::Vec3 vec3;
+    vec3.x = x;
+    vec3.y = y;
+    vec3.z = z;
+    vec3.status = SensorStatus::ACCURACY_HIGH;
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+void GyroSensor::generateMinimalData(float& x, float& y, float& z) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.00053f, 0.00053f);
+
+    x = dis(gen);
+    y = dis(gen);
+    z = dis(gen);
 }
 
 AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
@@ -382,7 +417,7 @@ AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback
     mSensorInfo.type = SensorType::AMBIENT_TEMPERATURE;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 80.0f;
-    mSensorInfo.resolution = 0.01f;
+    mSensorInfo.resolution = 0.1f;
     mSensorInfo.power = 0.001f;
     mSensorInfo.minDelayUs = 40 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -393,7 +428,11 @@ AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback
 };
 
 void AmbientTempSensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(40.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis(-0.5f, 0.5f);
+
+    payload.set<EventPayload::Tag::scalar>(24.0f + dis(gen));
 }
 
 RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
@@ -406,7 +445,7 @@ RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
     mSensorInfo.type = SensorType::RELATIVE_HUMIDITY;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 100.0f;
-    mSensorInfo.resolution = 0.1f;
+    mSensorInfo.resolution = 1.0f;
     mSensorInfo.power = 0.001f;
     mSensorInfo.minDelayUs = 40 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -417,7 +456,11 @@ RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
 }
 
 void RelativeHumiditySensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(50.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<float> dis(-5, 5);
+
+    payload.set<EventPayload::Tag::scalar>(55.0f + dis(gen));
 }
 
 HingeAngleSensor::HingeAngleSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
