@@ -445,7 +445,7 @@ RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
     mSensorInfo.type = SensorType::RELATIVE_HUMIDITY;
     mSensorInfo.typeAsString = "";
     mSensorInfo.maxRange = 100.0f;
-    mSensorInfo.resolution = 0.1f;
+    mSensorInfo.resolution = 1.0f;
     mSensorInfo.power = 0.001f;
     mSensorInfo.minDelayUs = 40 * 1000;  // microseconds
     mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
@@ -456,7 +456,11 @@ RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
 }
 
 void RelativeHumiditySensor::readEventPayload(EventPayload& payload) {
-    payload.set<EventPayload::Tag::scalar>(50.0f);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<float> dis(-5, 5);
+
+    payload.set<EventPayload::Tag::scalar>(55.0f + dis(gen));
 }
 
 HingeAngleSensor::HingeAngleSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
