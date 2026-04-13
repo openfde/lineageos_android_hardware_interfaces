@@ -87,6 +87,17 @@ cc_library {
     ],
 }
 
+cc_library {
+    name: "sensors.usf",
+    vendor: true,
+    defaults: ["android.hardware.sensors@2.X-fakesubhal-defaults"],
+    cflags: [
+        "-DSUPPORT_CONTINUOUS_SENSORS",
+        "-DSUPPORT_ON_CHANGE_SENSORS",
+        "-DSUB_HAL_NAME=\"SubHal-All\"",
+    ],
+}
+
 cc_test_library {
     name: "android.hardware.sensors@2.X-fakesubhal-unittest",
     vendor_available: true,

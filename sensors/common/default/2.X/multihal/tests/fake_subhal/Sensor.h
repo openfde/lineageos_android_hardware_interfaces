@@ -98,6 +98,168 @@ class ContinuousSensor : public Sensor {
     ContinuousSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
 };
 
+class SpecialReportingSensor : public OnChangeSensor {
+  public:
+    SpecialReportingSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class OneShotSensor : public Sensor {
+  public:
+    OneShotSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+  protected:
+    virtual std::vector<Event> readEvents() override;
+};
+
+class AccelerometerSensor : public ContinuousSensor {
+  public:
+    AccelerometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class GyroscopeSensor : public ContinuousSensor {
+  public:
+    GyroscopeSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class MagnetometerSensor : public ContinuousSensor {
+  public:
+    MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class LightSensor : public OnChangeSensor {
+  public:
+    LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class OrientationSensor : public ContinuousSensor {
+  public:
+    OrientationSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class GravitySensor : public ContinuousSensor {
+  public:
+    GravitySensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class LinearAccelSensor : public ContinuousSensor {
+  public:
+    LinearAccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class RotationVectorSensor : public ContinuousSensor {
+  public:
+    RotationVectorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class MagneticUncalibratedSensor : public ContinuousSensor {
+  public:
+    MagneticUncalibratedSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class GameRotationVectorSensor : public ContinuousSensor {
+  public:
+    GameRotationVectorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class GyroUncalibratedSensor : public ContinuousSensor {
+  public:
+    GyroUncalibratedSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class SignificantMotionSensor : public OneShotSensor {
+  public:
+    SignificantMotionSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class StepDetectorSensor : public SpecialReportingSensor {
+  public:
+    StepDetectorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class StepCounterSensor : public OnChangeSensor {
+  public:
+    StepCounterSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class GeomagneticRotationVectorSensor : public ContinuousSensor {
+  public:
+    GeomagneticRotationVectorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class TiltDetectorSensor : public SpecialReportingSensor {
+  public:
+    TiltDetectorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class PickUpGestureSensor : public OneShotSensor {
+  public:
+    PickUpGestureSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class DeviceOrientationSensor : public OnChangeSensor {
+  public:
+    DeviceOrientationSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class AccelUncalibratedSensor : public ContinuousSensor {
+  public:
+    AccelUncalibratedSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class TemperatureSensor : public ContinuousSensor {
+  public:
+    TemperatureSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class CameraVSync0Sensor : public OnChangeSensor {
+  public:
+    CameraVSync0Sensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class CameraVSync1Sensor : public OnChangeSensor {
+  public:
+    CameraVSync1Sensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class ColorSensor : public OnChangeSensor {
+  public:
+    ColorSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class HallEffect0Sensor : public OnChangeSensor {
+  public:
+    HallEffect0Sensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class HallEffect1Sensor : public OnChangeSensor {
+  public:
+    HallEffect1Sensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class HallEffect2Sensor : public OnChangeSensor {
+  public:
+    HallEffect2Sensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class MotionDetectSensor : public OneShotSensor {
+  public:
+    MotionDetectSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class StationaryDetectSensor : public OneShotSensor {
+  public:
+    StationaryDetectSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class BinnedBrightnessSensor : public OnChangeSensor {
+  public:
+    BinnedBrightnessSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
+class AutoBrightnessSensor : public OnChangeSensor {
+  public:
+    AutoBrightnessSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+};
+
 class AccelSensor : public ContinuousSensor {
   public:
     AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
@@ -119,19 +281,9 @@ class PressureSensor : public ContinuousSensor {
     PressureSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
 };
 
-class MagnetometerSensor : public ContinuousSensor {
-  public:
-    MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
-};
-
 class AmbientTempSensor : public OnChangeSensor {
   public:
     AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
-};
-
-class LightSensor : public OnChangeSensor {
-  public:
-    LightSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
 };
 
 class ProximitySensor : public OnChangeSensor {
