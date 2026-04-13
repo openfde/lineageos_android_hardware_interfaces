@@ -226,14 +226,36 @@ template <class SubHalVersion>
 class AllSensorsSubHal : public SubHalVersion {
   public:
     AllSensorsSubHal() {
-        ISensorsSubHalBase::AddSensor<AccelSensor>();
-        ISensorsSubHalBase::AddSensor<GyroSensor>();
+        ISensorsSubHalBase::AddSensor<AccelerometerSensor>();
+        ISensorsSubHalBase::AddSensor<GyroscopeSensor>();
         ISensorsSubHalBase::AddSensor<MagnetometerSensor>();
-        ISensorsSubHalBase::AddSensor<PressureSensor>();
-        ISensorsSubHalBase::AddSensor<AmbientTempSensor>();
         ISensorsSubHalBase::AddSensor<LightSensor>();
-        ISensorsSubHalBase::AddSensor<ProximitySensor>();
-        ISensorsSubHalBase::AddSensor<RelativeHumiditySensor>();
+        ISensorsSubHalBase::AddSensor<OrientationSensor>();
+        ISensorsSubHalBase::AddSensor<GravitySensor>();
+        ISensorsSubHalBase::AddSensor<LinearAccelSensor>();
+        ISensorsSubHalBase::AddSensor<RotationVectorSensor>();
+        ISensorsSubHalBase::AddSensor<MagneticUncalibratedSensor>();
+        ISensorsSubHalBase::AddSensor<GameRotationVectorSensor>();
+        ISensorsSubHalBase::AddSensor<GyroUncalibratedSensor>();
+        ISensorsSubHalBase::AddSensor<SignificantMotionSensor>();
+        ISensorsSubHalBase::AddSensor<StepDetectorSensor>();
+        ISensorsSubHalBase::AddSensor<StepCounterSensor>();
+        ISensorsSubHalBase::AddSensor<GeomagneticRotationVectorSensor>();
+        ISensorsSubHalBase::AddSensor<TiltDetectorSensor>();
+        ISensorsSubHalBase::AddSensor<PickUpGestureSensor>();
+        ISensorsSubHalBase::AddSensor<DeviceOrientationSensor>();
+        ISensorsSubHalBase::AddSensor<AccelUncalibratedSensor>();
+        ISensorsSubHalBase::AddSensor<TemperatureSensor>();
+        ISensorsSubHalBase::AddSensor<CameraVSync0Sensor>();
+        ISensorsSubHalBase::AddSensor<CameraVSync1Sensor>();
+        ISensorsSubHalBase::AddSensor<ColorSensor>();
+        ISensorsSubHalBase::AddSensor<HallEffect0Sensor>();
+        ISensorsSubHalBase::AddSensor<HallEffect1Sensor>();
+        ISensorsSubHalBase::AddSensor<HallEffect2Sensor>();
+        ISensorsSubHalBase::AddSensor<MotionDetectSensor>();
+        ISensorsSubHalBase::AddSensor<StationaryDetectSensor>();
+        ISensorsSubHalBase::AddSensor<BinnedBrightnessSensor>();
+        ISensorsSubHalBase::AddSensor<AutoBrightnessSensor>();
     }
 };
 
