@@ -166,9 +166,6 @@ bool ExternalCameraDeviceSession::initialize() {
     if (!strcmp(value, "mesa")) {
         mUseMesa = true;
     }
-    if (!strcmp(value, "FTG340")) {
-        mUseFtg340 = true;
-    }
 
     struct v4l2_capability capability;
     int ret = ioctl(mV4l2Fd.get(), VIDIOC_QUERYCAP, &capability);
@@ -488,7 +485,7 @@ ScopedAStatus ExternalCameraDeviceSession::configureStreams(
                 // This should look at the Stream's dataspace flag to determine the format or leave
                 // it as is if the rest of the system knows how to handle a private format. To keep
                 // this HAL generic, this is being overridden to YUV420
-                out[i].overrideFormat = mUseFtg340 ? PixelFormat::YV12 : PixelFormat::YCBCR_420_888;
+                out[i].overrideFormat = PixelFormat::YCBCR_420_888;
                 // Save overridden format in mStreamMap
                 mStreamMap[in_requestedConfiguration.streams[i].id].format = out[i].overrideFormat;
                 break;

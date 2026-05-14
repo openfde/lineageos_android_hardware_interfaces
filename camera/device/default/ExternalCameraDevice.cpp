@@ -368,7 +368,7 @@ status_t ExternalCameraDevice::initAvailableCapabilities(
 
 status_t ExternalCameraDevice::initDefaultCharsKeys(
         ::android::hardware::camera::common::V1_0::helper::CameraMetadata* metadata) {
-    const uint8_t hardware_level = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
+    const uint8_t hardware_level = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
     UPDATE(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hardware_level, 1);
 
     // android.colorCorrection
@@ -646,15 +646,19 @@ status_t ExternalCameraDevice::initOutputCharsKeys(
     // For V4L2_PIX_FMT_Z16
     std::array<int, /*size*/ 1> halDepthFormats{{HAL_PIXEL_FORMAT_Y16}};
     // For V4L2_PIX_FMT_MJPEG
-    std::array<int, /*size*/ 3> halFormats{{HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
+    std::array<int, /*size*/ 2> halFormats{{/*HAL_PIXEL_FORMAT_BLOB, */HAL_PIXEL_FORMAT_YCbCr_420_888,
                                             HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED}};
 
+    std::set<uint32_t> fmts;
     for (const auto& supportedFormat : mSupportedFormats) {
+        fmts.insert(supportedFormat.fourcc);
+    }
+    for (const auto& supportedFormat : fmts) {
         status_t ret;
-        switch (supportedFormat.fourcc) {
+        switch (supportedFormat) {
             case V4L2_PIX_FMT_Z16:
                 ret = initOutputCharsKeysByFormat(
-                    metadata, supportedFormat.fourcc, halDepthFormats,
+                    metadata, supportedFormat, halDepthFormats,
                     ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT,
                     ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS,
                     ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS,
@@ -667,23 +671,23 @@ status_t ExternalCameraDevice::initOutputCharsKeys(
                 break;
             case V4L2_PIX_FMT_MJPEG:
             case V4L2_PIX_FMT_YUYV:
-                ret = initOutputCharsKeysByFormat(metadata, supportedFormat.fourcc, halFormats,
+                ret = initOutputCharsKeysByFormat(metadata, supportedFormat, halFormats,
                     ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
                     ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
                     ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
                     ANDROID_SCALER_AVAILABLE_STALL_DURATIONS);
                 if (ret != OK) {
                     ALOGE("%s: Unable to initialize color format %c%c%c%c keys: %s", __FUNCTION__,
-                          supportedFormat.fourcc & 0xFF, (supportedFormat.fourcc >> 8) & 0xFF,
-                          (supportedFormat.fourcc >> 16) & 0xFF, (supportedFormat.fourcc >> 24) & 0xFF,
+                          supportedFormat & 0xFF, (supportedFormat >> 8) & 0xFF,
+                          (supportedFormat >> 16) & 0xFF, (supportedFormat >> 24) & 0xFF,
                           statusToString(ret).c_str());
                     return ret;
                 }
                 break;
             default:
                 ALOGW("%s: format %c%c%c%c is not supported!", __FUNCTION__,
-                      supportedFormat.fourcc & 0xFF, (supportedFormat.fourcc >> 8) & 0xFF,
-                      (supportedFormat.fourcc >> 16) & 0xFF, (supportedFormat.fourcc >> 24) & 0xFF);
+                      supportedFormat & 0xFF, (supportedFormat >> 8) & 0xFF,
+                      (supportedFormat >> 16) & 0xFF, (supportedFormat >> 24) & 0xFF);
         }
     }
 
@@ -736,48 +740,98 @@ status_t ExternalCameraDevice::initOutputCharsKeysByFormat(
         "320x240", "640x480", "1280x720", "1920x1080"
     };
     std::vector<std::string> wantedMesaResolutions = {
-        "512x", "1024x"
+        "512x", "1024x", "1536x"
     };
     int pos = -1;
     int nearest512Pos = -1;
     int nearest1024Pos = -1;
-    int min512 = std::numeric_limits<int>::max();
-    int min1024 = std::numeric_limits<int>::max();
+    int nearest1536Pos = -1;
+    std::vector<int> allNearest512Pos;
+    std::vector<int> allNearest1024Pos;
+    std::vector<int> allNearest1536Pos;
     std::vector<SupportedV4L2Format> formatsOnlyForMesa;
 
     if (mUseMesa) {
+        int min512 = std::numeric_limits<int>::max();
+        int min1024 = std::numeric_limits<int>::max();
+        int min1536 = std::numeric_limits<int>::max();
+        const int width512 = 512;
+        const int width1024 = 1024;
+        const int width1536 = 1536;
         for (const auto& supportedFormat : mSupportedFormats) {
             pos++;
             if (supportedFormat.fourcc != fourcc) {
                 continue;
             }
-            int absValue = std::abs((int)supportedFormat.width - 512);
-            if (min512 > absValue) {
-                min512 = absValue;
+            int diff = (int)supportedFormat.width - width512;
+            if ((diff >= 0) && (min512 >= diff)) {
+                min512 = diff;
                 nearest512Pos = pos;
+                allNearest512Pos.push_back(pos);
             }
-            absValue = std::abs((int)supportedFormat.width - 1024);
-            if (min1024 > absValue) {
-                min1024 = absValue;
+            diff = (int)supportedFormat.width - width1024;
+            if ((diff >= 0) && (min1024 >= diff)) {
+                min1024 = diff;
                 nearest1024Pos = pos;
+                allNearest1024Pos.push_back(pos);
+            }
+            diff = (int)supportedFormat.width - width1536;
+            if ((diff >= 0) && (min1536 >= diff)) {
+                min1536 = diff;
+                nearest1536Pos = pos;
+                allNearest1536Pos.push_back(pos);
             }
         }
-        SupportedV4L2Format tmpV4L2Format;
-        if (nearest512Pos != -1) {
-            tmpV4L2Format = mSupportedFormats[nearest512Pos];
-            tmpV4L2Format.width = nearest512Pos == nearest1024Pos ? (min512 < min1024 ? 512 : 1024) : 512;
-            tmpV4L2Format.height = static_cast<int>(std::ceil((double)(tmpV4L2Format.width)
-                * mSupportedFormats[nearest512Pos].height / mSupportedFormats[nearest512Pos].width));
-            mMesaSupportedFormats.push_back({nearest512Pos, tmpV4L2Format});
-            formatsOnlyForMesa.push_back(tmpV4L2Format);
-            if (nearest512Pos != nearest1024Pos) {
-                tmpV4L2Format = mSupportedFormats[nearest1024Pos];
-                tmpV4L2Format.width = 1024;
-                tmpV4L2Format.height = static_cast<int>(std::ceil((double)(tmpV4L2Format.width)
-                    * mSupportedFormats[nearest512Pos].height / mSupportedFormats[nearest512Pos].width));
-                mMesaSupportedFormats.push_back({nearest1024Pos, tmpV4L2Format});
-                formatsOnlyForMesa.push_back(tmpV4L2Format);
+        auto filterPos = [&](std::vector<int> &maxSizeArPos, std::vector<int> &allPos) {
+            float maxSizeAr = ASPECT_RATIO(mSupportedFormats[maxSizeArPos[maxSizeArPos.size() - 1]]);
+            int posToReturn = -1;
+            for (int p = allPos.size() - 1; p >= 0; p--) {
+                float ar = ASPECT_RATIO(mSupportedFormats[allPos[p]]);
+                if (isAspectRatioClose(ar, maxSizeAr) || (mCroppingType == HORIZONTAL && ar < maxSizeAr)
+                    || (mCroppingType == VERTICAL && ar > maxSizeAr)) {
+                    posToReturn = allPos[p];
+                    break;
+                } else {
+                    ALOGV("mesa: size (%d,%d) is removed due to unable to crop %s from (%d,%d)", mSupportedFormats[allPos[p]].width,
+                          mSupportedFormats[allPos[p]].height, mCroppingType == VERTICAL ? "vertically" : "horizontally",
+                          mSupportedFormats[maxSizeArPos[maxSizeArPos.size() - 1]].width,
+                          mSupportedFormats[maxSizeArPos[maxSizeArPos.size() - 1]].height);
+                }
             }
+            return posToReturn;
+        };
+
+        if (allNearest1536Pos.size() != 0) {
+            nearest512Pos = filterPos(allNearest1536Pos, allNearest512Pos);
+            nearest1024Pos = filterPos(allNearest1536Pos, allNearest1024Pos);
+        } else if (allNearest1024Pos.size() != 0) {
+            nearest512Pos = filterPos(allNearest1024Pos, allNearest512Pos);
+        }
+
+        auto formatsAddForMesa = [&](int p, int width) {
+            SupportedV4L2Format tmpV4L2Format = mSupportedFormats[p];
+            tmpV4L2Format.width = width;
+            tmpV4L2Format.height = static_cast<int>(std::ceil((double)(tmpV4L2Format.width)
+                * mSupportedFormats[p].height / mSupportedFormats[p].width));
+            mMesaSupportedFormats.push_back({p, tmpV4L2Format});
+            formatsOnlyForMesa.push_back(tmpV4L2Format);
+        };
+
+        if (nearest1536Pos != -1) {
+            if (nearest1536Pos != nearest512Pos && nearest1024Pos != nearest512Pos) {
+                formatsAddForMesa(nearest512Pos, width512);
+            }
+            if (nearest1536Pos != nearest1024Pos) {
+                formatsAddForMesa(nearest1024Pos, width1024);
+            }
+            formatsAddForMesa(nearest1536Pos, width1536);
+        } else if (nearest1024Pos != -1) {
+            if (nearest1024Pos != nearest512Pos) {
+                formatsAddForMesa(nearest512Pos, width512);
+            }
+            formatsAddForMesa(nearest1024Pos, width1024);
+        } else if (nearest512Pos != -1) {
+            formatsAddForMesa(nearest512Pos, width512);
         }
     }
     bool needSetProp = !mIsShadow && (mId >= 0);
