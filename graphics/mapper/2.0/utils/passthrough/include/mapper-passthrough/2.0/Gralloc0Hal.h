@@ -101,6 +101,14 @@ class Gralloc0HalImpl : public Hal {
         return Error::NONE;
     }
 
+    Error needConvertFormat(native_handle_t* bufferHandle, uint32_t* result) override {
+        if (!mModule->need_convert_format) {
+            return Error::BAD_BUFFER;
+        }
+        *result = mModule->need_convert_format(mModule, bufferHandle);
+        return Error::NONE;
+    }
+
     Error lock(const native_handle_t* bufferHandle, uint64_t cpuUsage,
                const IMapper::Rect& accessRegion, base::unique_fd fenceFd,
                void** outData) override {
