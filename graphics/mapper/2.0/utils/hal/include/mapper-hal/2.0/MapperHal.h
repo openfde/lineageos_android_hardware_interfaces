@@ -38,8 +38,6 @@ class MapperHal {
     virtual Error importBuffer(const native_handle_t* rawHandle,
                                native_handle_t** outBufferHandle) = 0;
 
-    virtual Error needCovertFormat(native_handle_t* handle, uint32_t* result) = 0;
-
     // free an imported buffer handle
     virtual Error freeBuffer(native_handle_t* bufferHandle) = 0;
 
