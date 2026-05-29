@@ -131,8 +131,6 @@ interface IMapper {
     @callflow(next="*")
     freeBuffer(pointer buffer) generates (Error error);
 
-    needCovertFormat(pointer buffer) generates (Error error, uint32_t buffer);
-
     /**
      * Locks the given buffer for the specified CPU usage.
      *
