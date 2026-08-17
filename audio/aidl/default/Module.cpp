@@ -1249,8 +1249,8 @@ ndk::ScopedAStatus Module::resetAudioPortConfig(int32_t in_portConfigId) {
 }
 
 ndk::ScopedAStatus Module::getMasterMute(bool* _aidl_return) {
-    pa_get_master_mute(_aidl_return);
-    mMasterMute = *_aidl_return;
+    //pa_get_master_mute(_aidl_return);
+    mMasterMute = *_aidl_return = false;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
@@ -1271,8 +1271,8 @@ ndk::ScopedAStatus Module::setMasterMute(bool in_mute) {
 }
 
 ndk::ScopedAStatus Module::getMasterVolume(float* _aidl_return) {
-    pa_get_master_volume(_aidl_return);
-    mMasterVolume = *_aidl_return;
+    //pa_get_master_volume(_aidl_return);
+    mMasterVolume = *_aidl_return = 1.0f;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
@@ -1628,12 +1628,12 @@ void Module::onPrepareToDisconnectExternalDevice(
 }
 
 ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute) {
-    pa_set_master_mute(mute);
+    //pa_set_master_mute(mute);
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume) {
-    pa_set_master_volume(volume);
+    //pa_set_master_volume(volume);
     return ndk::ScopedAStatus::ok();
 }
 
